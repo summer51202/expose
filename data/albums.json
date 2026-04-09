@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1774242812405,
+    "name": "未命名相簿",
+    "slug": "album-1774242812405",
+    "description": "這本相簿的原始文字在先前編碼問題中受損，建議你之後在後台重新命名。",
+    "coverPhotoId": null,
+    "sortOrder": 0,
+    "createdAt": "2026-03-23T05:13:32.406Z"
+  },
+  {
+    "id": 1774594106301,
+    "name": "測試台灣風景",
+    "slug": "album-1774594106301",
+    "description": "",
+    "coverPhotoId": null,
+    "sortOrder": 1,
+    "createdAt": "2026-03-27T06:48:26.301Z"
+  }
+]

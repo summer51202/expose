@@ -1,0 +1,52 @@
+@import "tailwindcss" source(none);
+@source "../";
+
+:root {
+  --background: #f7f2e8;
+  --foreground: #1f1b16;
+  --panel: rgba(255, 251, 245, 0.78);
+  --line: rgba(92, 70, 44, 0.18);
+}
+
+[data-theme="dark"] {
+  --background: #0c0c0c;
+  --foreground: #f5f5f5;
+  --panel: rgba(255, 255, 255, 0.06);
+  --line: rgba(255, 255, 255, 0.10);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-panel: var(--panel);
+  --color-line: var(--line);
+  --font-sans: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  --font-mono: "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  background-image:
+    radial-gradient(circle at top left, rgba(224, 169, 85, 0.25), transparent 28%),
+    radial-gradient(circle at top right, rgba(77, 116, 158, 0.22), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(247, 242, 232, 0.92));
+}
+
+a:not([class]) {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: rgba(215, 160, 71, 0.28);
+}

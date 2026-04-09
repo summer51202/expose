@@ -1,0 +1,371 @@
+{
+  "$schema": "Features checklist — DO NOT modify structure, only update status/notes fields",
+  "project": "expose-photo-site",
+  "last_updated": "2026-03-27",
+  "phases": [
+    {
+      "id": "phase1",
+      "name": "MVP — 最小可用版本",
+      "description": "管理員上傳照片、訪客瀏覽照片",
+      "features": [
+        {
+          "id": "P1-INIT",
+          "title": "專案初始化",
+          "description": "Next.js + Tailwind + Prisma + R2 設定、基礎 layout",
+          "status": "done",
+          "priority": 1,
+          "dependencies": [],
+          "acceptance_criteria": [
+            "npm run dev 可正常啟動",
+            "首頁可正常渲染",
+            "Prisma schema 已定義",
+            "Tailwind 樣式生效"
+          ],
+          "notes": "已完成基礎架構，目前使用 JSON 檔案做資料儲存"
+        },
+        {
+          "id": "P1-AUTH",
+          "title": "管理員驗證系統",
+          "description": "帳號密碼登入、session 管理、保護管理後台路由",
+          "status": "in_progress",
+          "priority": 2,
+          "dependencies": ["P1-INIT"],
+          "acceptance_criteria": [
+            "管理員可用帳密登入",
+            "未登入者無法進入 /admin",
+            "登入狀態在頁面刷新後保持",
+            "登出功能正常運作"
+          ],
+          "notes": "已有 login page 與 session module，需驗證完整流程"
+        },
+        {
+          "id": "P1-UPLOAD",
+          "title": "照片上傳與多尺寸處理",
+          "description": "支援多張批次上傳、拖拉上傳、自動產生三種尺寸（原圖/中圖1200px/縮圖400px）",
+          "status": "in_progress",
+          "priority": 3,
+          "dependencies": ["P1-AUTH"],
+          "acceptance_criteria": [
+            "可拖拉上傳多張照片",
+            "上傳後自動產生 original/medium/thumbnail 三種尺寸",
+            "WebP 格式輸出",
+            "上傳進度有回饋",
+            "上傳失敗有錯誤提示"
+          ],
+          "notes": "已有 upload-form 和 image-pipeline，使用本地 uploads/ 目錄，尚未接 R2"
+        },
+        {
+          "id": "P1-GALLERY",
+          "title": "首頁照片牆（瀑布流 + RWD）",
+          "description": "瀑布流佈局顯示照片、響應式設計、blur placeholder",
+          "status": "in_progress",
+          "priority": 4,
+          "dependencies": ["P1-UPLOAD"],
+          "acceptance_criteria": [
+            "照片以瀑布流排列",
+            "手機/平板/桌面三種斷點正確顯示",
+            "照片載入前顯示 blur placeholder",
+            "空狀態有適當提示"
+          ],
+          "notes": "已有 photo-grid 和 photo-card 元件，hero/explainers section 已建立"
+        },
+        {
+          "id": "P1-VIEWER",
+          "title": "照片放大檢視",
+          "description": "點擊照片進入詳情頁、顯示中圖、照片資訊",
+          "status": "in_progress",
+          "priority": 5,
+          "dependencies": ["P1-GALLERY"],
+          "acceptance_criteria": [
+            "點擊照片卡片可進入 /photos/[source]/[id]",
+            "詳情頁顯示中圖尺寸照片",
+            "顯示標題、描述、拍攝時間等資訊",
+            "有返回導航"
+          ],
+          "notes": "已有 photo-stage 元件和 photos/[source]/[id] 路由"
+        },
+        {
+          "id": "P1-DATA",
+          "title": "資料層從 JSON 遷移到 Prisma/PostgreSQL",
+          "description": "將 data/*.json 的讀寫邏輯替換為 Prisma ORM 操作",
+          "status": "done",
+          "priority": 6,
+          "dependencies": ["P1-INIT"],
+          "acceptance_criteria": [
+            "所有 CRUD 操作透過 Prisma 執行",
+            "data/*.json 不再作為主要資料源",
+            "現有功能在切換後行為不變",
+            "prisma migrate dev 可正常執行"
+          ],
+          "notes": "已切換到 Prisma + SQLite。保留 JSON manifest 作為匯入來源，正式 app 讀寫改走 Prisma repositories；本機 SQLite 採用 %TEMP% 路徑以避開 workspace 上的 journal I/O 問題。"
+        },
+        {
+          "id": "P1-STORAGE",
+          "title": "儲存層從本地切換到 Cloudflare R2",
+          "description": "照片上傳至 R2、URL 指向 R2 public endpoint",
+          "status": "done",
+          "priority": 7,
+          "dependencies": ["P1-UPLOAD"],
+          "acceptance_criteria": [
+            "上傳的照片存入 R2 bucket",
+            "照片 URL 指向 R2 public base URL",
+            "本地不再存放上傳的照片檔案",
+            ".env 中 R2 設定正確"
+          ],
+          "notes": "已完成真實 R2 driver 串接，使用 Cloudflare R2 S3 API 上傳並回傳 public bucket URL；本機 .env 已切到 STORAGE_BACKEND=r2。"
+        }
+      ]
+    },
+    {
+      "id": "phase2",
+      "name": "核心體驗提升",
+      "description": "相簿管理、EXIF、幻燈片、懶載入",
+      "features": [
+        {
+          "id": "P2-ALBUM",
+          "title": "相簿分類功能",
+          "description": "相簿 CRUD、拖拉排序、照片歸屬相簿",
+          "status": "in_progress",
+          "priority": 1,
+          "dependencies": ["P1-GALLERY"],
+          "acceptance_criteria": [
+            "可建立/編輯/刪除相簿",
+            "照片可指定到相簿",
+            "相簿頁面 /albums/[slug] 正常顯示",
+            "相簿支援封面照片",
+            "首頁顯示相簿列表"
+          ],
+          "notes": "已有 album-form、album-actions、album-strip-section，基本功能已建立"
+        },
+        {
+          "id": "P2-EXIF",
+          "title": "EXIF 資訊讀取與顯示",
+          "description": "上傳時解析 EXIF、在照片詳情頁顯示相機/焦距/光圈/快門/ISO",
+          "status": "not_started",
+          "priority": 2,
+          "dependencies": ["P1-UPLOAD"],
+          "acceptance_criteria": [
+            "上傳時自動解析 EXIF 資訊",
+            "照片詳情頁顯示相機型號、焦距、光圈、快門、ISO",
+            "無 EXIF 的照片不顯示該區塊",
+            "GPS 座標不對外顯示（隱私考量）"
+          ],
+          "notes": "Photo model 已有 exifData JSON 欄位，Sharp 已安裝"
+        },
+        {
+          "id": "P2-SLIDESHOW",
+          "title": "幻燈片瀏覽模式",
+          "description": "全螢幕幻燈片、鍵盤左右鍵切換、自動播放",
+          "status": "not_started",
+          "priority": 3,
+          "dependencies": ["P1-VIEWER"],
+          "acceptance_criteria": [
+            "照片詳情頁可進入全螢幕幻燈片模式",
+            "鍵盤左右鍵可切換上下張",
+            "ESC 可退出全螢幕",
+            "支援觸控滑動（行動裝置）"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "P2-LAZYLOAD",
+          "title": "照片懶載入",
+          "description": "Intersection Observer 實作、首屏只載入可見區域",
+          "status": "not_started",
+          "priority": 4,
+          "dependencies": ["P1-GALLERY"],
+          "acceptance_criteria": [
+            "滾動到可見區域才載入照片",
+            "載入前顯示 placeholder",
+            "不影響 SEO（SSR 照片 URL 仍在 HTML 中）"
+          ],
+          "notes": "可搭配 next/image 的 loading='lazy' 實作"
+        }
+      ]
+    },
+    {
+      "id": "phase3",
+      "name": "社交互動",
+      "description": "留言、按讚、管理",
+      "features": [
+        {
+          "id": "P3-COMMENT",
+          "title": "訪客留言功能",
+          "description": "填暱稱即可留言、無需註冊、IP hash 防濫用",
+          "status": "not_started",
+          "priority": 1,
+          "dependencies": ["P2-ALBUM"],
+          "acceptance_criteria": [
+            "照片詳情頁可填暱稱和內容送出留言",
+            "留言即時顯示",
+            "IP hash 記錄但不對外顯示",
+            "空暱稱或空內容無法送出"
+          ],
+          "notes": "Comment model 已在 Prisma schema 中定義"
+        },
+        {
+          "id": "P3-LIKE",
+          "title": "按讚/喜歡功能",
+          "description": "基於 localStorage + IP 防重複",
+          "status": "not_started",
+          "priority": 2,
+          "dependencies": ["P2-ALBUM"],
+          "acceptance_criteria": [
+            "照片可按讚",
+            "同一訪客同一照片只能按一次讚",
+            "讚數正確顯示",
+            "重新整理後按讚狀態保持"
+          ],
+          "notes": "PhotoLike model 已在 Prisma schema 中定義，有 unique constraint"
+        },
+        {
+          "id": "P3-MODERATION",
+          "title": "留言管理後台",
+          "description": "管理員可檢視、刪除不當留言",
+          "status": "not_started",
+          "priority": 3,
+          "dependencies": ["P3-COMMENT"],
+          "acceptance_criteria": [
+            "管理後台可列出所有留言",
+            "可單則刪除留言",
+            "刪除需確認",
+            "批次刪除功能"
+          ],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "phase-ui",
+      "name": "UI 沉浸式改版（Direction C）",
+      "description": "首頁淺色主題 + 照片詳情頁暗色主題，全面提升攝影作品展示體驗。決策於 2026-03-27。",
+      "features": [
+        {
+          "id": "UI-THEME",
+          "title": "雙主題 CSS Token 系統 + Route Group Layout 分離",
+          "description": "建立 light / dark CSS token，以 route group 分離 browse layout 與 photo-detail layout，照片頁自動套暗色主題",
+          "status": "done",
+          "priority": 1,
+          "dependencies": ["P1-GALLERY"],
+          "acceptance_criteria": [
+            "globals.css 有 :root（淺色）與 [data-theme='dark']（暗色）兩組 token",
+            "(browse) route group layout 套用淺色背景 token",
+            "photos/[source]/[id]/layout.tsx 套用 data-theme='dark'",
+            "首頁、相簿頁維持淺色；照片詳情頁為暗色（#0c0c0c）",
+            "Admin 後台不受影響"
+          ],
+          "notes": "這是所有其他 UI feature 的基礎，必須最先完成。不使用 JS 動態切換主題，由 layout 靜態決定。"
+        },
+        {
+          "id": "UI-NAV",
+          "title": "全站 Header 改版 + 英文化",
+          "description": "極簡透明 Header（Hero 上方），捲動後轉為不透明；全站 UI 文字統一為英文",
+          "status": "done",
+          "priority": 2,
+          "dependencies": ["UI-THEME"],
+          "acceptance_criteria": [
+            "Header 在首頁 Hero 上方為透明（logo + nav link 白色）",
+            "捲動超過 Hero 後，Header 背景轉為淺色（淺色頁）或深色（暗色頁）",
+            "全站所有 hardcode UI 字串改為英文（按鈕、標題、說明文字）",
+            "相簿頁與照片頁的返回連結樣式更新為英文"
+          ],
+          "notes": "UI 文字統一英文決策時間：2026-03-27。i18n 切換另立 P4-I18N 處理。"
+        },
+        {
+          "id": "UI-HERO",
+          "title": "Hero Section 全出血改版 + 輪播",
+          "description": "封面照片全出血（100vh）、client-side 自動輪播（5s crossfade）、移除 ExplainersSection、極簡文字 overlay",
+          "status": "done",
+          "priority": 3,
+          "dependencies": ["UI-THEME", "UI-NAV"],
+          "acceptance_criteria": [
+            "Hero 佔滿整個第一屏（100vh）",
+            "照片每 5 秒自動切換，使用 CSS opacity crossfade",
+            "左下 overlay 顯示攝影師名稱與一句話介紹",
+            "底部有 'View Portfolio' 捲動 CTA（平滑捲動到照片牆）",
+            "ExplainersSection 元件已從首頁移除",
+            "HeroSection 接收 photos[] prop，為 client component"
+          ],
+          "notes": "輪播邏輯參考 SlideshowViewer 的 auto-play 實作（useState + useEffect + setInterval）。兩張照片疊層，CSS opacity 切換。"
+        },
+        {
+          "id": "UI-GALLERY",
+          "title": "照片牆視覺改版",
+          "description": "移除 PhotoCard 白色卡片邊框，改為純照片瀑布流；hover 時顯示漸層 overlay 動畫；Section heading 改為正式英文內容",
+          "status": "done",
+          "priority": 4,
+          "dependencies": ["UI-THEME"],
+          "acceptance_criteria": [
+            "PhotoCard 移除白色卡片邊框、白色背景與 box-shadow",
+            "照片之間保留適當 gap，視覺上是純照片網格",
+            "hover 時出現底部暗色漸層 overlay，顯示標題與日期（CSS transition）",
+            "Next.js Image blur placeholder 已啟用（blurDataURL）",
+            "照片牆 Section heading 改為 'LATEST WORK'，移除開發說明文字",
+            "Album Strip 更新為有封面照的卡片"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "UI-PHOTOPAGE",
+          "title": "照片詳情頁暗色沉浸式改版",
+          "description": "暗色主題全頁、照片舞台高度約 85vh、Interactions Panel 合併按讚與留言、EXIF 改為 collapsible、移除冗餘 Panel",
+          "status": "done",
+          "priority": 5,
+          "dependencies": ["UI-THEME"],
+          "acceptance_criteria": [
+            "頁面背景為 #0c0c0c，右側欄採用暗色 panel 樣式",
+            "照片舞台高度約 85vh，為視覺絕對主角",
+            "按讚數量與留言數整合為 Interactions header（♡ N · 💬 N）",
+            "LikeButton 位於留言區頂部，移除獨立按讚 Panel",
+            "EXIF 改為預設收合的 collapsible section（▸ EXIF），點擊展開",
+            "Prev / Next 移至 Header 右側為 icon 箭頭（← →）",
+            "移除「給新手的白話說明」Panel",
+            "右側欄整體為 3 個區塊：基本資訊、Interactions、EXIF"
+          ],
+          "notes": "舊版有 6 個獨立 Panel，改版後合併為 3 個區塊。移除「按讚說明」段落與「白話說明」Panel。"
+        },
+        {
+          "id": "UI-SLIDESHOW",
+          "title": "幻燈片模式底部縮圖帶改版",
+          "description": "右側選片欄改為底部水平縮圖帶，縮圖帶可最小化為 dot indicator，照片切換加入 Framer Motion crossfade",
+          "status": "done",
+          "priority": 6,
+          "dependencies": ["UI-PHOTOPAGE"],
+          "acceptance_criteria": [
+            "幻燈片的「快速選片」右側欄改為底部水平縮圖帶",
+            "縮圖帶有 [⌄] / [⌃] toggle 按鈕，控制展開/收合",
+            "收合時顯示 dot indicator（·· ■ ··），標示當前位置",
+            "展開/收合使用 CSS max-height transition（不是 display none）",
+            "當前縮圖自動捲動至可見範圍（scrollIntoView）",
+            "照片切換使用 Framer Motion AnimatePresence + opacity crossfade",
+            "幻燈片模式移除右側資訊欄，資訊改為大圖下方 overlay（標題 · 進度 · 日期）"
+          ],
+          "notes": "需安裝 framer-motion（npm i framer-motion）。縮圖帶預設展開（isThumbsVisible = true）。"
+        }
+      ]
+    },
+    {
+      "id": "phase4",
+      "name": "國際化與進階體驗",
+      "description": "多語言支援、進階 UX 功能",
+      "features": [
+        {
+          "id": "P4-I18N",
+          "title": "中英文雙語切換（i18n）",
+          "description": "使用 next-intl 實作 /en 與 /zh 路由，提供語言切換器，所有 UI 文字支援翻譯",
+          "status": "not_started",
+          "priority": 1,
+          "dependencies": ["P1-GALLERY"],
+          "acceptance_criteria": [
+            "所有 hardcode UI 字串移至 messages/en.json 與 messages/zh-TW.json",
+            "URL 採 locale prefix：/en/photos/...、/zh/photos/...",
+            "語言切換器元件可正常切換且保持當前頁面路徑",
+            "預設語言由瀏覽器 Accept-Language 決定",
+            "Admin 後台僅需英文，不需要雙語"
+          ],
+          "notes": "目前 UI 文字統一為英文（決策於 2026-03-27）。此 feature 為 future work，待核心功能穩定後再實作。建議使用 next-intl，配合 App Router middleware 做 locale routing。"
+        }
+      ]
+    }
+  ]
+}

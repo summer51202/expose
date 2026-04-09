@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Album {
+  id           BigInt   @id
+  name         String
+  slug         String   @unique
+  description  String?
+  coverPhotoId BigInt?  @unique
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  photos       Photo[]
+  coverPhoto   Photo?   @relation("AlbumCover", fields: [coverPhotoId], references: [id], onDelete: SetNull)
+}
+
+model Photo {
+  id              BigInt      @id
+  albumId         BigInt?
+  title           String
+  description     String?
+  location        String?
+  originalUrl     String
+  originalKey     String?
+  thumbnailUrl    String
+  thumbnailKey    String?
+  mediumUrl       String
+  mediumKey       String?
+  blurDataUrl     String?
+  storageProvider String      @default("local")
+  width           Int
+  height          Int
+  exifData        Json?
+  takenAt         DateTime?
+  sortOrder       Int         @default(0)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  album           Album?      @relation(fields: [albumId], references: [id], onDelete: SetNull)
+  coverFor        Album?      @relation("AlbumCover")
+  comments        Comment[]
+  likes           PhotoLike[]
+}
+
+model Comment {
+  id          BigInt   @id
+  photoId     BigInt
+  photoSource String   @default("uploaded")
+  nickname    String
+  content     String
+  ipHash      String
+  createdAt   DateTime @default(now())
+  photo       Photo    @relation(fields: [photoId], references: [id], onDelete: Cascade)
+}
+
+model PhotoLike {
+  id          BigInt   @id
+  photoId     BigInt
+  photoSource String   @default("uploaded")
+  visitorId   String
+  createdAt   DateTime @default(now())
+  photo       Photo    @relation(fields: [photoId], references: [id], onDelete: Cascade)
+
+  @@unique([photoId, visitorId])
+}
