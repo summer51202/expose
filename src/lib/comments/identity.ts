@@ -1,15 +1,20 @@
 import "server-only";
 
-import { createHash } from "node:crypto";
-
 import { headers } from "next/headers";
+
+import { hashCommentIdentity } from "@/lib/comments/identity-hash";
 
 export async function getVisitorHash() {
   const headerStore = await headers();
-  const forwardedFor = headerStore.get("x-forwarded-for") ?? "";
-  const realIp = headerStore.get("x-real-ip") ?? "";
-  const userAgent = headerStore.get("user-agent") ?? "";
-  const fingerprint = `${forwardedFor}|${realIp}|${userAgent}`;
+  const secret =
+    process.env.COMMENT_IDENTITY_SECRET?.trim() ||
+    process.env.AUTH_SECRET?.trim() ||
+    "local-dev-comment-identity-secret-change-me";
 
-  return createHash("sha256").update(fingerprint || "anonymous").digest("hex");
+  return hashCommentIdentity({
+    forwardedFor: headerStore.get("x-forwarded-for") ?? "",
+    realIp: headerStore.get("x-real-ip") ?? "",
+    userAgent: headerStore.get("user-agent") ?? "",
+    secret,
+  });
 }

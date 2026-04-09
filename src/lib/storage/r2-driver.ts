@@ -1,5 +1,6 @@
 import { createHash, createHmac } from "node:crypto";
 
+import { UploadStorageError } from "@/lib/security/errors";
 import type { StorageDriver } from "@/lib/storage/types";
 
 const R2_REGION = "auto";
@@ -138,8 +139,8 @@ export const r2StorageDriver: StorageDriver = {
     });
 
     if (!response.ok) {
-      throw new Error(
-        `R2 upload failed with ${response.status} ${response.statusText}: ${await response.text()}`,
+      throw new UploadStorageError(
+        `R2 upload failed with ${response.status} ${response.statusText}.`,
       );
     }
 

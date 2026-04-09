@@ -3,7 +3,10 @@
 import { useState } from "react";
 import { useActionState } from "react";
 
-import { uploadPhotosAction, type UploadFormState } from "@/app/admin/upload-actions";
+import {
+  uploadPhotosAction,
+  type UploadFormState,
+} from "@/app/admin/upload-actions-secure";
 import { Button } from "@/components/ui/button";
 
 const initialState: UploadFormState = {};
