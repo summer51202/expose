@@ -4,6 +4,8 @@ import { HeroSection } from "@/components/home/hero-section";
 import { PhotoWallSection } from "@/components/home/photo-wall-section";
 import { getGalleryPhotos } from "@/lib/photos/queries";
 
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   const [photos, albums] = await Promise.all([getGalleryPhotos(), getAlbums()]);
 
