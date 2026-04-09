@@ -1,6 +1,8 @@
 import sharp from "sharp";
 
 import { extractExifData, type ExifRecord } from "@/lib/photos/exif";
+import { UploadProcessingError } from "@/lib/security/errors";
+import { validateImageMetadata } from "@/lib/uploads/upload-guards";
 
 type ProcessUploadInput = {
   fileName: string;
@@ -39,37 +41,54 @@ export async function processUpload({
 }: ProcessUploadInput): Promise<ProcessUploadResult> {
   const baseName = createBaseName(fileName);
 
-  const normalized = sharp(buffer).rotate();
-  const metadata = await normalized.metadata();
+  let normalized: sharp.Sharp;
+  let metadata: sharp.Metadata;
+
+  try {
+    normalized = sharp(buffer).rotate();
+    metadata = await normalized.metadata();
+  } catch (error) {
+    throw new UploadProcessingError(
+      error instanceof Error ? error.message : "Image metadata extraction failed.",
+    );
+  }
+
   const width = metadata.width ?? 0;
   const height = metadata.height ?? 0;
+  validateImageMetadata({ fileName, width, height });
   const exifData = await extractExifData(buffer);
 
-  const originalBuffer = await normalized.clone().webp({ quality: 92 }).toBuffer();
-  const mediumBuffer = await normalized
-    .clone()
-    .resize({ width: 1200, height: 1200, fit: "inside", withoutEnlargement: true })
-    .webp({ quality: 84 })
-    .toBuffer();
-  const thumbnailBuffer = await normalized
-    .clone()
-    .resize({ width: 400, height: 400, fit: "inside", withoutEnlargement: true })
-    .webp({ quality: 76 })
-    .toBuffer();
-  const blurBuffer = await normalized
-    .clone()
-    .resize({ width: 32, height: 32, fit: "inside", withoutEnlargement: true })
-    .webp({ quality: 40 })
-    .toBuffer();
+  try {
+    const originalBuffer = await normalized.clone().webp({ quality: 92 }).toBuffer();
+    const mediumBuffer = await normalized
+      .clone()
+      .resize({ width: 1200, height: 1200, fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 84 })
+      .toBuffer();
+    const thumbnailBuffer = await normalized
+      .clone()
+      .resize({ width: 400, height: 400, fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 76 })
+      .toBuffer();
+    const blurBuffer = await normalized
+      .clone()
+      .resize({ width: 32, height: 32, fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 40 })
+      .toBuffer();
 
-  return {
-    baseName,
-    originalBuffer,
-    mediumBuffer,
-    thumbnailBuffer,
-    width,
-    height,
-    blurDataUrl: `data:image/webp;base64,${blurBuffer.toString("base64")}`,
-    exifData,
-  };
+    return {
+      baseName,
+      originalBuffer,
+      mediumBuffer,
+      thumbnailBuffer,
+      width,
+      height,
+      blurDataUrl: `data:image/webp;base64,${blurBuffer.toString("base64")}`,
+      exifData,
+    };
+  } catch (error) {
+    throw new UploadProcessingError(
+      error instanceof Error ? error.message : "Image transformation failed.",
+    );
+  }
 }

@@ -1,24 +1,27 @@
 "use server";
 
-export {
-  uploadPhotosAction,
-  type UploadFormState,
-} from "@/app/admin/upload-actions-secure";
-
 import { revalidatePath } from "next/cache";
 
 import { requireAdminSession } from "@/lib/auth/session";
-import { uploadPhotos } from "@/lib/uploads/upload-service";
+import { mapUploadErrorToMessage } from "@/lib/security/errors";
+import {
+  uploadPhotos,
+  type UploadSummary,
+} from "@/lib/uploads/upload-service-secure";
 
-type LegacyUploadFormState = {
+export type UploadFormState = {
   error?: string;
   success?: string;
 };
 
-async function legacyUploadPhotosAction(
-  _prevState: LegacyUploadFormState,
+function buildUploadSuccessMessage(result: UploadSummary) {
+  return `照片上傳完成，已新增 ${result.uploadedCount} 張相片。`;
+}
+
+export async function uploadPhotosAction(
+  _prevState: UploadFormState,
   formData: FormData,
-): Promise<LegacyUploadFormState> {
+): Promise<UploadFormState> {
   await requireAdminSession();
 
   const files = formData
@@ -36,11 +39,11 @@ async function legacyUploadPhotosAction(
     revalidatePath("/admin");
 
     return {
-      success: `上傳完成，共處理 ${result.uploadedCount} 張照片，並自動產生中圖與縮圖。`,
+      success: buildUploadSuccessMessage(result),
     };
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "上傳時發生未知錯誤。",
+      error: mapUploadErrorToMessage(error),
     };
   }
 }

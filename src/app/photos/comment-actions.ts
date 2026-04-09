@@ -5,12 +5,21 @@ import { revalidatePath } from "next/cache";
 import { getVisitorHash } from "@/lib/comments/identity";
 import { getCommentRepository } from "@/lib/comments/repository";
 import { getPhotoBySourceAndId } from "@/lib/photos/queries";
+import { getHashedRequestFingerprint } from "@/lib/security/request-fingerprint";
+import { rateLimiter } from "@/lib/security/rate-limit";
 import type { CommentRecord } from "@/types/comment";
 
 export type CommentFormState = {
   error?: string;
   success?: string;
 };
+
+const COMMENT_RATE_LIMIT = {
+  limit: 3,
+  windowMs: 60 * 1000,
+  blockMs: 2 * 60 * 1000,
+};
+const COMMENT_RATE_LIMIT_MESSAGE = "留言太頻繁了，請稍後再試。";
 
 export async function createCommentAction(
   source: "uploaded" | "sample",
@@ -49,6 +58,18 @@ export async function createCommentAction(
   if (!photo) {
     return {
       error: "找不到這張照片，請重新整理後再試一次。",
+    };
+  }
+
+  const fingerprint = await getHashedRequestFingerprint();
+  const limiterResult = rateLimiter.check(
+    `comment:${source}:${photoId}:${fingerprint}`,
+    COMMENT_RATE_LIMIT,
+  );
+
+  if (!limiterResult.allowed) {
+    return {
+      error: COMMENT_RATE_LIMIT_MESSAGE,
     };
   }
 
