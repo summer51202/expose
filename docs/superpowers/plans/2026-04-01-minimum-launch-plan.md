@@ -32,8 +32,8 @@
 - `package.json`
 
 ### Existing files to read for implementation context
-- `docs/p1-auth-data-storage-design.md`
-- `docs/p1-auth-data-storage-checklist.md`
+- `docs/design/p1-auth-data-storage-design.md`
+- `docs/design/p1-auth-data-storage-checklist.md`
 - `prisma/schema.prisma`
 - `scripts/migrate-json-to-prisma.mjs`
 - `scripts/verify-prisma-import.mjs`
@@ -44,7 +44,7 @@
 - `src/lib/storage/local-driver.ts`
 - `src/lib/storage/r2-driver.ts`
 - `src/lib/storage/url.ts`
-- `docs/launch-checklist.md`
+- `docs/runbooks/launch-checklist.md`
 
 ---
 
@@ -445,7 +445,7 @@ git commit -m "fix: close minimum launch smoke flow gaps"
 ### Task 7: Create a lightweight launch checklist and handoff doc
 
 **Files:**
-- Create: `docs/launch-checklist.md`
+- Create: `docs/runbooks/launch-checklist.md`
 - Modify if needed: `.env.example`
 - Modify if needed: `README.md`
 
@@ -489,7 +489,7 @@ Suggested structure:
 - [ ] **Step 4: Commit**
 
 ```powershell
-git add docs/launch-checklist.md .env.example README.md
+git add docs/runbooks/launch-checklist.md .env.example README.md
 git commit -m "docs: add minimum launch checklist"
 ```
 

@@ -79,7 +79,7 @@ Check that:
 ### Task 2: Align the Documentation With the Actual Files
 
 **Files:**
-- Modify: `docs/docker-postgres-pgadmin-workflow.md`
+- Modify: `docs/runbooks/docker-postgres-pgadmin-workflow.md`
 
 - [ ] **Step 1: Confirm the documented defaults match the real files**
 
@@ -109,7 +109,7 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/expose?schema=public
 **Files:**
 - Read: `docker/compose.yml`
 - Read: `docker/.env.docker`
-- Read: `docs/docker-postgres-pgadmin-workflow.md`
+- Read: `docs/runbooks/docker-postgres-pgadmin-workflow.md`
 
 - [ ] **Step 1: Validate file presence and content**
 

@@ -5,7 +5,7 @@
 這份文件是 Coding Agent session 的逐步執行指南，補充 `features.json` 的 acceptance_criteria 不足之處。
 每個 ticket 都列出：需要改動的確切檔案、改動順序、技術注意事項。
 
-設計規格見 `docs/mockups.md`、架構說明見 `docs/architecture.md`。
+設計規格見 `docs/design/mockups.md`、架構說明見 `docs/design/architecture.md`。
 
 **執行順序必須嚴格遵守**（有依賴關係）：
 ```

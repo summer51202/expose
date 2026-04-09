@@ -3,13 +3,61 @@
 ## 文件目的
 這份文件描述目前專案「實際正在運作的架構」，並標出未來遷移到 Prisma / PostgreSQL / R2 時應該怎麼切。
 
+---
+
+## Software Stack
+
+### Frontend
+| 技術 | 版本 | 用途 |
+| --- | --- | --- |
+| Next.js | 16.2.0 | App Router、SSR/SSG、Server Actions |
+| React | 19.2.4 | UI 元件框架 |
+| Tailwind CSS | 4.x | Utility-first CSS，雙主題 token 系統 |
+| Framer Motion | 12.x | 幻燈片照片切換動畫（AnimatePresence） |
+
+### Backend / Runtime
+| 技術 | 版本 | 用途 |
+| --- | --- | --- |
+| Next.js Server Actions | — | 表單提交、資料寫入、revalidatePath |
+| Prisma ORM | 6.x | 資料庫存取層（Album / Photo / Comment / PhotoLike） |
+| SQLite | — | 本機開發與生產環境資料庫（透過 Prisma 操作） |
+| Sharp | 0.34.x | 伺服器端圖片處理：resize、WebP 轉換、blur placeholder 生成 |
+| exifr | 7.x | 上傳時解析照片 EXIF 資訊（相機型號、焦距、光圈、快門、ISO） |
+
+### 儲存層
+| 技術 | 用途 |
+| --- | --- |
+| Cloudflare R2 | 照片檔案物件儲存（original / medium / thumbnail 三種尺寸） |
+| SQLite on Railway Volume | 結構化資料持久化（相簿、照片 metadata、留言、按讚） |
+
+### 認證
+| 技術 | 用途 |
+| --- | --- |
+| Cookie-based session | 管理員後台登入，使用 `AUTH_SECRET` 簽名 cookie |
+
+### 開發工具
+| 技術 | 版本 | 用途 |
+| --- | --- | --- |
+| TypeScript | 5.x | 全專案型別安全 |
+| ESLint | 9.x | 程式碼品質檢查（eslint-config-next） |
+| tsx | 4.x | 直接執行 TypeScript 腳本（migration scripts） |
+
+### 部署 / 基礎設施
+| 技術 | 用途 |
+| --- | --- |
+| Railway | Next.js app hosting + 持久化 Volume（SQLite） |
+| Cloudflare R2 | 圖片物件儲存，S3-compatible API |
+| GitHub | 原始碼版本控制，Railway CI/CD 觸發來源 |
+
+---
+
 ## 技術基底
 - Next.js 16 App Router
 - React 19
 - Tailwind CSS 4
 - Server Actions
-- Prisma schema 已建立
-- 目前 runtime data source 為 JSON files
+- Prisma 6 + SQLite（生產環境 Railway Volume）
+- Cloudflare R2（圖片儲存）
 
 ## 高層架構
 ```text
