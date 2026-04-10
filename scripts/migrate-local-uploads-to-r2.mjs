@@ -1,4 +1,5 @@
 import { createHash, createHmac } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -10,7 +11,7 @@ const projectRoot = process.cwd();
 function loadEnvFile() {
   try {
     const envPath = path.join(projectRoot, ".env");
-    const content = require("node:fs").readFileSync(envPath, "utf8");
+    const content = readFileSync(envPath, "utf8");
     for (const line of content.split(/\r?\n/)) {
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith("#")) {

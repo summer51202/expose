@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
 
@@ -15,7 +15,7 @@ export type UploadFormState = {
 };
 
 function buildUploadSuccessMessage(result: UploadSummary) {
-  return `照片上傳完成，已新增 ${result.uploadedCount} 張相片。`;
+  return `已完成上傳，共新增 ${result.uploadedCount} 張照片。`;
 }
 
 export async function uploadPhotosAction(
@@ -32,7 +32,7 @@ export async function uploadPhotosAction(
   try {
     const result = await uploadPhotos({
       files,
-      albumId: rawAlbumId ? Number(rawAlbumId) : null,
+      albumId: Number(rawAlbumId),
     });
 
     revalidatePath("/");

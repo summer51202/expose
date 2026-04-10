@@ -2,10 +2,11 @@ import path from "node:path";
 
 import { getAlbumOptions } from "@/lib/albums/queries";
 import { getPhotoRepository } from "@/lib/photos/repository";
-import { UploadStorageError } from "@/lib/security/errors";
+import { UploadStorageError, UploadValidationError } from "@/lib/security/errors";
 import { getStorageBackend, getStorageDriver } from "@/lib/storage/provider";
 import { processUpload } from "@/lib/uploads/image-pipeline";
-import { validateUploadBatch } from "@/lib/uploads/upload-guards";
+import { getUploadBatchError } from "@/lib/uploads/upload-batch";
+import { getUploadSelectionError } from "@/lib/uploads/upload-selection";
 import type { PhotoRecord } from "@/types/photo";
 
 export type UploadSummary = {
@@ -22,10 +23,32 @@ export async function uploadPhotos({
   files,
   albumId,
 }: UploadPhotosInput): Promise<UploadSummary> {
-  const validFiles = validateUploadBatch(files);
-  const album = albumId
-    ? (await getAlbumOptions()).find((item) => item.id === albumId) ?? null
-    : null;
+  const validFiles = files.filter((file) => file.size > 0);
+  const selectionError = getUploadSelectionError({
+    albumId: albumId == null ? "" : String(albumId),
+    fileCount: validFiles.length,
+  });
+  const batchError = getUploadBatchError(
+    validFiles.map((file) => ({
+      name: file.name,
+      size: file.size,
+      type: file.type,
+    })),
+  );
+
+  if (selectionError) {
+    throw new UploadValidationError(selectionError);
+  }
+
+  if (batchError) {
+    throw new UploadValidationError(batchError);
+  }
+
+  const album = (await getAlbumOptions()).find((item) => item.id === albumId) ?? null;
+  if (!album) {
+    throw new UploadValidationError("找不到指定的相簿，請重新選擇後再試一次。");
+  }
+
   const storageDriver = getStorageDriver();
   const storageProvider = getStorageBackend();
 
@@ -83,9 +106,9 @@ export async function uploadPhotos({
           ? new Date(processed.exifData.takenAt).toISOString()
           : undefined,
       exifData: processed.exifData,
-      albumId: album?.id ?? null,
-      albumName: album?.name,
-      albumSlug: album?.slug,
+      albumId: album.id,
+      albumName: album.name,
+      albumSlug: album.slug,
     });
   }
 
