@@ -1,4 +1,4 @@
-import "server-only";
+﻿import "server-only";
 
 import {
   listManifestPhotos,
@@ -17,6 +17,13 @@ type PrismaPhotoWithAlbum = Awaited<
     name: string;
     slug: string;
   } | null;
+};
+
+type MovePhotoToAlbumInput = {
+  photoId: number;
+  albumId: number;
+  albumName: string;
+  albumSlug: string;
 };
 
 function mapPhotoRecordFromPrisma(photo: PrismaPhotoWithAlbum): PhotoRecord {
@@ -41,8 +48,7 @@ function mapPhotoRecordFromPrisma(photo: PrismaPhotoWithAlbum): PhotoRecord {
     originalKey: photo.originalKey ?? undefined,
     mediumKey: photo.mediumKey ?? undefined,
     thumbnailKey: photo.thumbnailKey ?? undefined,
-    storageProvider:
-      photo.storageProvider === "r2" ? "r2" : "local",
+    storageProvider: photo.storageProvider === "r2" ? "r2" : "local",
     source: "uploaded",
     albumId: fromPrismaBigInt(photo.albumId),
   };
@@ -74,6 +80,7 @@ export interface PhotoRepository {
   listUploadedPhotos(): Promise<PhotoRecord[]>;
   savePhotos(records: PhotoRecord[]): Promise<void>;
   renameAlbumReferences(albumId: number, name: string, slug: string): Promise<void>;
+  movePhotoToAlbum(input: MovePhotoToAlbumInput): Promise<void>;
 }
 
 const jsonPhotoRepository: PhotoRepository = {
@@ -97,6 +104,21 @@ const jsonPhotoRepository: PhotoRepository = {
       ),
     );
   },
+  async movePhotoToAlbum({ photoId, albumId, albumName, albumSlug }) {
+    const photos = await listManifestPhotos();
+    await replaceManifestPhotos(
+      photos.map((photo) =>
+        photo.id === photoId
+          ? {
+              ...photo,
+              albumId,
+              albumName,
+              albumSlug,
+            }
+          : photo,
+      ),
+    );
+  },
 };
 
 const prismaPhotoRepository: PhotoRepository = {
@@ -115,9 +137,7 @@ const prismaPhotoRepository: PhotoRepository = {
       },
     });
 
-    return photos.map((photo) =>
-      mapPhotoRecordFromPrisma(photo as PrismaPhotoWithAlbum),
-    );
+    return photos.map((photo) => mapPhotoRecordFromPrisma(photo as PrismaPhotoWithAlbum));
   },
   async savePhotos(records) {
     for (const record of records) {
@@ -129,10 +149,14 @@ const prismaPhotoRepository: PhotoRepository = {
   async renameAlbumReferences() {
     return;
   },
+  async movePhotoToAlbum({ photoId, albumId }) {
+    await prisma.photo.update({
+      where: { id: toPrismaBigInt(photoId) },
+      data: { albumId: toPrismaBigInt(albumId) },
+    });
+  },
 };
 
 export function getPhotoRepository(): PhotoRepository {
-  return getDataBackend() === "prisma"
-    ? prismaPhotoRepository
-    : jsonPhotoRepository;
+  return getDataBackend() === "prisma" ? prismaPhotoRepository : jsonPhotoRepository;
 }

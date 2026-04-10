@@ -1,6 +1,7 @@
 ﻿import Link from "next/link";
 
 import { deleteCommentAction } from "@/app/admin/engagement-actions";
+import { CommentReplyForm } from "@/components/admin/comment-reply-form";
 import { Button } from "@/components/ui/button";
 
 type CommentModerationListProps = {
@@ -9,6 +10,11 @@ type CommentModerationListProps = {
     nickname: string;
     content: string;
     createdAt: string;
+    ownerReplyName?: string;
+    ownerReplyContent?: string;
+    ownerReplyCreatedAt?: string;
+    photoId: number;
+    photoSource: "uploaded" | "sample";
     photoTitle: string;
     photoHref: string | null;
   }>;
@@ -26,7 +32,7 @@ export function CommentModerationList({ comments }: CommentModerationListProps) 
   return (
     <div className="grid gap-3">
       {comments.map((comment) => {
-        const action = deleteCommentAction.bind(null, comment.id);
+        const action = deleteCommentAction.bind(null, comment.id, comment.photoSource);
 
         return (
           <article
@@ -57,6 +63,26 @@ export function CommentModerationList({ comments }: CommentModerationListProps) 
                 <span>{comment.photoTitle}</span>
               )}
             </div>
+
+            {comment.ownerReplyContent ? (
+              <div className="mt-4 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-4">
+                <p className="font-medium text-stone-900">{comment.ownerReplyName}</p>
+                <p className="mt-1 text-sm text-stone-500">
+                  {comment.ownerReplyCreatedAt
+                    ? new Date(comment.ownerReplyCreatedAt).toLocaleString("zh-TW")
+                    : ""}
+                </p>
+                <p className="mt-3 whitespace-pre-wrap leading-7 text-stone-700">
+                  {comment.ownerReplyContent}
+                </p>
+              </div>
+            ) : (
+              <CommentReplyForm
+                commentId={comment.id}
+                photoId={comment.photoId}
+                photoSource={comment.photoSource}
+              />
+            )}
           </article>
         );
       })}

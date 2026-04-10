@@ -1,10 +1,12 @@
-import "server-only";
+﻿import "server-only";
 
 import {
   appendManifestComment,
   deleteManifestComment,
   listManifestComments,
+  replyToManifestComment,
 } from "@/lib/comments/manifest-repository";
+import { getCommentStoreForSource } from "@/lib/comments/comment-store";
 import { getDataBackend } from "@/lib/data/backend";
 import { toPrismaBigInt } from "@/lib/prisma-id";
 import { prisma } from "@/lib/prisma";
@@ -13,7 +15,16 @@ import type { CommentRecord } from "@/types/comment";
 export interface CommentRepository {
   listComments(): Promise<CommentRecord[]>;
   appendComment(record: CommentRecord): Promise<void>;
-  deleteComment(commentId: number): Promise<void>;
+  deleteComment(commentId: number, photoSource: CommentRecord["photoSource"]): Promise<void>;
+  replyToComment(
+    commentId: number,
+    photoSource: CommentRecord["photoSource"],
+    reply: {
+      ownerReplyName: string;
+      ownerReplyContent: string;
+      ownerReplyCreatedAt: string;
+    },
+  ): Promise<void>;
 }
 
 const jsonCommentRepository: CommentRepository = {
@@ -25,6 +36,9 @@ const jsonCommentRepository: CommentRepository = {
   },
   async deleteComment(commentId) {
     await deleteManifestComment(commentId);
+  },
+  async replyToComment(commentId, _photoSource, reply) {
+    await replyToManifestComment(commentId, reply);
   },
 };
 
@@ -49,6 +63,9 @@ const prismaCommentRepository: CommentRepository = {
       content: comment.content,
       ipHash: comment.ipHash,
       createdAt: comment.createdAt.toISOString(),
+      ownerReplyName: comment.ownerReplyName ?? undefined,
+      ownerReplyContent: comment.ownerReplyContent ?? undefined,
+      ownerReplyCreatedAt: comment.ownerReplyCreatedAt?.toISOString(),
     }));
 
     return [...records, ...sampleComments].sort(
@@ -72,15 +89,29 @@ const prismaCommentRepository: CommentRepository = {
       },
     });
   },
-  async deleteComment(commentId) {
-    const sampleComments = await listManifestComments();
-    if (sampleComments.some((comment) => comment.id === commentId)) {
+  async deleteComment(commentId, photoSource) {
+    if (getCommentStoreForSource(getDataBackend(), photoSource) === "manifest") {
       await deleteManifestComment(commentId);
       return;
     }
 
     await prisma.comment.delete({
       where: { id: toPrismaBigInt(commentId) },
+    });
+  },
+  async replyToComment(commentId, photoSource, reply) {
+    if (getCommentStoreForSource(getDataBackend(), photoSource) === "manifest") {
+      await replyToManifestComment(commentId, reply);
+      return;
+    }
+
+    await prisma.comment.update({
+      where: { id: toPrismaBigInt(commentId) },
+      data: {
+        ownerReplyName: reply.ownerReplyName,
+        ownerReplyContent: reply.ownerReplyContent,
+        ownerReplyCreatedAt: new Date(reply.ownerReplyCreatedAt),
+      },
     });
   },
 };

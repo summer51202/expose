@@ -21,7 +21,22 @@ export class UploadProcessingError extends Error {
 
 export function mapUploadErrorToMessage(error: unknown) {
   if (error instanceof UploadValidationError) {
-    return error.message;
+    switch (error.message) {
+      case "Please choose an album before uploading photos.":
+        return "請先選擇要上傳到哪一本相簿。";
+      case "Please choose at least one photo.":
+        return "請至少選擇一張照片。";
+      case "File type is not supported.":
+        return "有檔案格式不支援，目前只接受 JPG、PNG、WebP、AVIF。";
+      case "A file is larger than the per-file upload limit.":
+        return "單張照片超過 20MB，請先縮小後再上傳。";
+      case "Too many files were selected for one upload batch.":
+        return "單次最多可上傳 12 張照片，請分批處理。";
+      case "The selected batch is larger than the total upload size limit.":
+        return "本次上傳總大小超過 40MB，請分批處理。";
+      default:
+        return error.message;
+    }
   }
 
   if (error instanceof UploadProcessingError) {

@@ -1,5 +1,6 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 
+import { AlbumCoverSlideshow } from "@/components/albums/album-cover-slideshow";
 import { SectionHeading } from "@/components/ui/section-heading";
 import type { AlbumSummary } from "@/types/album";
 
@@ -30,6 +31,7 @@ export function AlbumStripSection({ albums }: AlbumStripSectionProps) {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {albums.map((album, index) => {
           const gradient = albumGradients[index % albumGradients.length];
+          const hasSlideshow = (album.slideshowPhotos?.length ?? 0) > 0;
 
           return (
             <Link
@@ -37,10 +39,15 @@ export function AlbumStripSection({ albums }: AlbumStripSectionProps) {
               href={`/albums/${encodeURIComponent(album.slug)}`}
               className="group relative block aspect-[4/3] overflow-hidden rounded-[1.75rem]"
             >
-              <div
-                className={`absolute inset-0 bg-gradient-to-br ${gradient} transition-transform duration-500 group-hover:scale-105`}
-              />
+              {hasSlideshow ? (
+                <AlbumCoverSlideshow photos={album.slideshowPhotos ?? []} />
+              ) : (
+                <div
+                  className={`absolute inset-0 bg-gradient-to-br ${gradient} transition-transform duration-500 group-hover:scale-105`}
+                />
+              )}
 
+              <div className="absolute inset-0 bg-black/20" />
               <div className="absolute inset-0 bg-white/10 opacity-20 mix-blend-overlay" />
 
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-5">

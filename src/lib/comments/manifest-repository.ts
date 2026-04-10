@@ -1,4 +1,4 @@
-import "server-only";
+﻿import "server-only";
 
 import { getDataFilePath, readJsonArrayFile, writeJsonFile } from "@/lib/data/json-store";
 import type { CommentRecord } from "@/types/comment";
@@ -26,4 +26,27 @@ export async function appendManifestComment(record: CommentRecord) {
 export async function deleteManifestComment(commentId: number) {
   const current = await readManifest();
   await writeManifest(current.filter((comment) => comment.id !== commentId));
+}
+
+export async function replyToManifestComment(
+  commentId: number,
+  reply: {
+    ownerReplyName: string;
+    ownerReplyContent: string;
+    ownerReplyCreatedAt: string;
+  },
+) {
+  const current = await readManifest();
+  await writeManifest(
+    current.map((comment) =>
+      comment.id === commentId
+        ? {
+            ...comment,
+            ownerReplyName: reply.ownerReplyName,
+            ownerReplyContent: reply.ownerReplyContent,
+            ownerReplyCreatedAt: reply.ownerReplyCreatedAt,
+          }
+        : comment,
+    ),
+  );
 }
