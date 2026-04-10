@@ -1,7 +1,10 @@
+﻿import { buildAlbumSlideshowPhotos } from "@/lib/albums/album-slideshow";
 import { getAlbumRepository } from "@/lib/albums/repository";
 import { normalizeAlbumSlug } from "@/lib/albums/slug";
 import { getPhotoRepository } from "@/lib/photos/repository";
 import type { AlbumSummary } from "@/types/album";
+
+const ALBUM_SLIDESHOW_LIMIT = 4;
 
 export async function getAlbums(): Promise<AlbumSummary[]> {
   const albumRepository = getAlbumRepository();
@@ -14,6 +17,7 @@ export async function getAlbums(): Promise<AlbumSummary[]> {
   return albums.map((album) => ({
     ...album,
     photoCount: photos.filter((photo) => photo.albumId === album.id).length,
+    slideshowPhotos: buildAlbumSlideshowPhotos(album.id, photos, ALBUM_SLIDESHOW_LIMIT),
   }));
 }
 

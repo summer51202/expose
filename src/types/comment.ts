@@ -1,4 +1,4 @@
-export type CommentRecord = {
+﻿export type CommentRecord = {
   id: number;
   photoId: number;
   photoSource: "uploaded" | "sample";
@@ -6,4 +6,7 @@ export type CommentRecord = {
   content: string;
   ipHash: string;
   createdAt: string;
+  ownerReplyName?: string;
+  ownerReplyContent?: string;
+  ownerReplyCreatedAt?: string;
 };

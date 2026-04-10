@@ -21,41 +21,44 @@ model Album {
 }
 
 model Photo {
-  id              BigInt      @id
-  albumId         BigInt?
-  title           String
-  description     String?
-  location        String?
-  originalUrl     String
-  originalKey     String?
-  thumbnailUrl    String
-  thumbnailKey    String?
-  mediumUrl       String
-  mediumKey       String?
-  blurDataUrl     String?
-  storageProvider String      @default("local")
-  width           Int
-  height          Int
-  exifData        Json?
-  takenAt         DateTime?
-  sortOrder       Int         @default(0)
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  album           Album?      @relation(fields: [albumId], references: [id], onDelete: SetNull)
-  coverFor        Album?      @relation("AlbumCover")
-  comments        Comment[]
-  likes           PhotoLike[]
+  id                BigInt      @id
+  albumId           BigInt?
+  title             String
+  description       String?
+  location          String?
+  originalUrl       String
+  originalKey       String?
+  thumbnailUrl      String
+  thumbnailKey      String?
+  mediumUrl         String
+  mediumKey         String?
+  blurDataUrl       String?
+  storageProvider   String      @default("local")
+  width             Int
+  height            Int
+  exifData          Json?
+  takenAt           DateTime?
+  sortOrder         Int         @default(0)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  album             Album?      @relation(fields: [albumId], references: [id], onDelete: SetNull)
+  coverFor          Album?      @relation("AlbumCover")
+  comments          Comment[]
+  likes             PhotoLike[]
 }
 
 model Comment {
-  id          BigInt   @id
-  photoId     BigInt
-  photoSource String   @default("uploaded")
-  nickname    String
-  content     String
-  ipHash      String
-  createdAt   DateTime @default(now())
-  photo       Photo    @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  id                 BigInt   @id
+  photoId            BigInt
+  photoSource        String   @default("uploaded")
+  nickname           String
+  content            String
+  ipHash             String
+  createdAt          DateTime @default(now())
+  ownerReplyName     String?
+  ownerReplyContent  String?
+  ownerReplyCreatedAt DateTime?
+  photo              Photo    @relation(fields: [photoId], references: [id], onDelete: Cascade)
 }
 
 model PhotoLike {

@@ -1,4 +1,4 @@
-export type AlbumRecord = {
+﻿export type AlbumRecord = {
   id: number;
   name: string;
   slug: string;
@@ -8,6 +8,15 @@ export type AlbumRecord = {
   createdAt: string;
 };
 
+export type AlbumSlideshowPhoto = {
+  id: number;
+  title: string;
+  mediumUrl: string;
+  thumbnailUrl: string;
+  blurDataUrl?: string;
+};
+
 export type AlbumSummary = AlbumRecord & {
   photoCount: number;
+  slideshowPhotos?: AlbumSlideshowPhoto[];
 };

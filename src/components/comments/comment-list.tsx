@@ -1,4 +1,4 @@
-import type { CommentRecord } from "@/types/comment";
+﻿import type { CommentRecord } from "@/types/comment";
 
 type CommentListProps = {
   comments: CommentRecord[];
@@ -31,6 +31,26 @@ export function CommentList({ comments }: CommentListProps) {
             </p>
           </div>
           <p className="mt-3 whitespace-pre-wrap leading-7 text-foreground/80">{comment.content}</p>
+
+          {comment.ownerReplyContent ? (
+            <div className="mt-4 rounded-2xl border border-line bg-white/6 px-4 py-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="font-medium text-foreground">{comment.ownerReplyName}</p>
+                <p className="text-sm text-foreground/45">
+                  {comment.ownerReplyCreatedAt
+                    ? new Date(comment.ownerReplyCreatedAt).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })
+                    : ""}
+                </p>
+              </div>
+              <p className="mt-3 whitespace-pre-wrap leading-7 text-foreground/75">
+                {comment.ownerReplyContent}
+              </p>
+            </div>
+          ) : null}
         </article>
       ))}
     </div>

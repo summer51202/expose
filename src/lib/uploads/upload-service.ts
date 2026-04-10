@@ -3,11 +3,14 @@
 import { getAlbumOptions } from "@/lib/albums/queries";
 import { getPhotoRepository } from "@/lib/photos/repository";
 import { getStorageBackend, getStorageDriver } from "@/lib/storage/provider";
+import {
+  UPLOAD_ALLOWED_IMAGE_TYPES,
+  UPLOAD_MAX_FILE_SIZE,
+  getUploadBatchError,
+} from "@/lib/uploads/upload-batch";
 import { processUpload } from "@/lib/uploads/image-pipeline";
+import { getUploadSelectionError } from "@/lib/uploads/upload-selection";
 import type { PhotoRecord } from "@/types/photo";
-
-const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
-const MAX_FILE_SIZE = 20 * 1024 * 1024;
 
 export type UploadSummary = {
   uploadedCount: number;
@@ -24,25 +27,43 @@ export async function uploadPhotos({
   albumId,
 }: UploadPhotosInput): Promise<UploadSummary> {
   const validFiles = files.filter((file) => file.size > 0);
-  if (validFiles.length === 0) {
-    throw new Error("請至少選擇一張照片。");
+  const selectionError = getUploadSelectionError({
+    albumId: albumId == null ? "" : String(albumId),
+    fileCount: validFiles.length,
+  });
+  const batchError = getUploadBatchError(
+    validFiles.map((file) => ({
+      name: file.name,
+      size: file.size,
+      type: file.type,
+    })),
+  );
+
+  if (selectionError) {
+    throw new Error(selectionError);
   }
 
-  const album = albumId
-    ? (await getAlbumOptions()).find((item) => item.id === albumId) ?? null
-    : null;
+  if (batchError) {
+    throw new Error(batchError);
+  }
+
+  const album = (await getAlbumOptions()).find((item) => item.id === albumId) ?? null;
+  if (!album) {
+    throw new Error("找不到指定的相簿，請重新選擇後再試一次。");
+  }
+
   const storageDriver = getStorageDriver();
   const storageProvider = getStorageBackend();
 
   const records: PhotoRecord[] = [];
 
   for (const file of validFiles) {
-    if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
-      throw new Error(`檔案 ${file.name} 格式不支援，目前只接受 JPG、PNG、WebP、AVIF。`);
+    if (!UPLOAD_ALLOWED_IMAGE_TYPES.has(file.type)) {
+      throw new Error("File type is not supported.");
     }
 
-    if (file.size > MAX_FILE_SIZE) {
-      throw new Error(`檔案 ${file.name} 超過 20MB，請先縮小後再上傳。`);
+    if (file.size > UPLOAD_MAX_FILE_SIZE) {
+      throw new Error("A file is larger than the per-file upload limit.");
     }
 
     const processed = await processUpload({
@@ -92,9 +113,9 @@ export async function uploadPhotos({
           ? new Date(processed.exifData.takenAt).toISOString()
           : undefined,
       exifData: processed.exifData,
-      albumId: album?.id ?? null,
-      albumName: album?.name,
-      albumSlug: album?.slug,
+      albumId: album.id,
+      albumName: album.name,
+      albumSlug: album.slug,
     });
   }
 
