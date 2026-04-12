@@ -45,6 +45,7 @@ yarn-error.log*
 # temp / scratch directories
 /temp-app/
 /.session/tmp/
+/.worktrees/
 
 # user-uploaded files (stored in R2 in production)
 /public/uploads/
