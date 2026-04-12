@@ -17,6 +17,24 @@ Current user feedback is concentrated in six areas:
 
 ---
 
+## Current Execution Plan
+
+The active v1 implementation is documented in:
+
+- `docs/superpowers/specs/2026-04-12-admin-multipage-photo-management-design.md`
+- `docs/superpowers/plans/2026-04-13-admin-multipage-photo-management-implementation-plan.md`
+
+This v1 targets feedback 1-4:
+
+- large upload clarity and guardrails
+- production-ready multipage admin structure
+- complete uploaded-photo management
+- required upload destination and post-upload correction
+
+Feedback 5 album cover slideshow and feedback 6 admin comment replies remain in the backlog for later phases.
+
+---
+
 ## Development Priority
 
 ### P0: Prevent wrong uploads and unblock admin correction
