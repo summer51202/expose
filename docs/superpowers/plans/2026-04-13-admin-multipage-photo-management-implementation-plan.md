@@ -25,49 +25,70 @@ This plan implements the 2026-04-12 v1 scope only:
 
 ## Architecture Diagram
 
-```text
-Browser
-  |
-  v
-Next.js App Router /admin/*
-  |
-  +-- src/app/admin/layout.tsx
-  |     shared admin route boundary
-  |
-  +-- src/components/admin/admin-shell.tsx
-  |     nav, page frame, logout surface
-  |
-  +-- /admin          Dashboard stats + workflow links
-  +-- /admin/upload   UploadForm -> uploadPhotosAction
-  +-- /admin/photos   PhotoManager -> photo-actions
-  +-- /admin/albums   AlbumForm + AlbumEditorForm
-  +-- /admin/comments CommentModerationList
-  +-- /admin/likes    LikeSummaryList
+```mermaid
+flowchart TD
+  browser[Browser]
+  router[Next.js App Router /admin/*]
+  layout[src/app/admin/layout.tsx]
+  shell[src/components/admin/admin-shell.tsx]
 
-Server Actions
-  |
-  +-- uploadPhotosAction()
-  |     requireAdminSession()
-  |     validate upload input
-  |     uploadPhotos()
-  |       processUpload()
-  |       getStorageDriver().putObject()
-  |       getPhotoRepository().savePhotos()
-  |
-  +-- movePhotoToAlbumAction()
-  +-- movePhotosToAlbumAction()
-        requireAdminSession()
-        validate album + photos
-        getPhotoRepository().movePhoto(s)ToAlbum()
-        revalidate affected paths
+  dashboard[/admin dashboard]
+  uploadPage[/admin/upload]
+  photosPage[/admin/photos]
+  albumsPage[/admin/albums]
+  commentsPage[/admin/comments]
+  likesPage[/admin/likes]
 
-Repositories
-  |
-  +-- PrismaPhotoRepository
-  |     prisma.photo.findMany/create/update/updateMany
-  |
-  +-- ManifestPhotoRepository
-        listManifestPhotos()/replaceManifestPhotos()
+  uploadForm[UploadForm]
+  photoManager[PhotoManager]
+  albumForms[AlbumForm + AlbumEditorForm]
+  commentsList[CommentModerationList]
+  likesList[LikeSummaryList]
+
+  uploadAction[uploadPhotosAction]
+  moveOneAction[movePhotoToAlbumAction]
+  moveManyAction[movePhotosToAlbumAction]
+
+  auth[requireAdminSession]
+  uploadService[uploadPhotos]
+  imagePipeline[processUpload]
+  storage[getStorageDriver.putObject]
+  photoRepo[getPhotoRepository]
+  prismaRepo[Prisma photo repository]
+  manifestRepo[Manifest photo repository]
+  revalidate[revalidate affected paths]
+
+  browser --> router
+  router --> layout --> shell
+  shell --> dashboard
+  shell --> uploadPage
+  shell --> photosPage
+  shell --> albumsPage
+  shell --> commentsPage
+  shell --> likesPage
+
+  uploadPage --> uploadForm --> uploadAction
+  photosPage --> photoManager
+  photoManager --> moveOneAction
+  photoManager --> moveManyAction
+  albumsPage --> albumForms
+  commentsPage --> commentsList
+  likesPage --> likesList
+
+  uploadAction --> auth
+  uploadAction --> uploadService
+  uploadService --> imagePipeline --> storage
+  uploadService --> photoRepo
+
+  moveOneAction --> auth
+  moveManyAction --> auth
+  moveOneAction --> photoRepo
+  moveManyAction --> photoRepo
+  moveOneAction --> revalidate
+  moveManyAction --> revalidate
+
+  photoRepo --> prismaRepo
+  photoRepo --> manifestRepo
 ```
 
 ---
@@ -76,43 +97,73 @@ Repositories
 
 ### Upload Workflow
 
-```text
-Admin opens /admin/upload
-  -> Select destination album
-  -> Select image files
-  -> Client shows count, total size, filenames, limits
-  -> Submit enabled only when album + files are present
-  -> uploadPhotosAction validates session, album id, count, total size, type, per-file size
-     -> invalid: same page shows actionable error; selected files remain visible
-     -> valid: files processed, stored, and saved
-        -> success state returned
-        -> UploadForm clears file input and selected filenames
+```mermaid
+flowchart TD
+  start[Admin opens /admin/upload]
+  album[Select destination album]
+  files[Select image files]
+  summary[Client shows count, total size, filenames, and limits]
+  enabled{Album and files present?}
+  disabled[Submit remains disabled]
+  submit[Submit upload form]
+  validate[uploadPhotosAction validates session, album id, count, total size, type, and per-file size]
+  valid{Valid input?}
+  error[Show actionable error on same page]
+  process[Process, store, and save photo records]
+  success[Return success state]
+  reset[UploadForm clears file input and selected filenames]
+
+  start --> album --> files --> summary --> enabled
+  enabled -- No --> disabled
+  enabled -- Yes --> submit --> validate --> valid
+  valid -- No --> error
+  valid -- Yes --> process --> success --> reset
 ```
 
 ### Photo Reassignment Workflow
 
-```text
-Admin opens /admin/photos
-  -> Server loads all uploaded photos + album options
-  -> Admin filters by album or reviews full list
-  -> Single move: choose target album in one row and submit
-  -> Bulk move: select photos, choose target album, submit
-  -> Action validates target album and selected photos
-     -> invalid: visible error
-     -> valid: repository updates albumId/albumName/albumSlug or Prisma relation
-        -> admin and public paths revalidate
+```mermaid
+flowchart TD
+  start[Admin opens /admin/photos]
+  load[Server loads all uploaded photos and album options]
+  review[Admin filters by album or reviews full list]
+  mode{Move type}
+  single[Single move: choose target album in one row]
+  bulk[Bulk move: select photos and choose target album]
+  submit[Submit move action]
+  validate[Action validates target album and selected photos]
+  valid{Valid move?}
+  error[Show visible error]
+  update[Repository updates album assignment]
+  revalidate[Revalidate admin and public paths]
+  refreshed[Page reflects updated album labels and counts]
+
+  start --> load --> review --> mode
+  mode -- Single --> single --> submit
+  mode -- Bulk --> bulk --> submit
+  submit --> validate --> valid
+  valid -- No --> error
+  valid -- Yes --> update --> revalidate --> refreshed
 ```
 
 ### Admin Navigation Workflow
 
-```text
-/admin
-  +-- Upload photos     -> /admin/upload
-  +-- Manage photos     -> /admin/photos
-  +-- Manage albums     -> /admin/albums
-  +-- Moderate comments -> /admin/comments
-  +-- Review likes      -> /admin/likes
-  +-- Visit site        -> /
+```mermaid
+flowchart LR
+  dashboard[/admin]
+  upload[/admin/upload]
+  photos[/admin/photos]
+  albums[/admin/albums]
+  comments[/admin/comments]
+  likes[/admin/likes]
+  site[/]
+
+  dashboard -->|Upload photos| upload
+  dashboard -->|Manage photos| photos
+  dashboard -->|Manage albums| albums
+  dashboard -->|Moderate comments| comments
+  dashboard -->|Review likes| likes
+  dashboard -->|Visit site| site
 ```
 
 ---
