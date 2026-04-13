@@ -10,6 +10,7 @@ import type { PhotoRecord } from "@/types/photo";
 export type PhotoMoveState = {
   error?: string;
   success?: string;
+  resetKey?: string;
 };
 
 function parseAlbumId(formData: FormData) {
@@ -123,6 +124,7 @@ export async function movePhotoToAlbumAction(
 
     return {
       success: `照片已移動到「${resolved.assignment.albumName}」。`,
+      resetKey: `${Date.now()}`,
     };
   } catch {
     return {
@@ -153,6 +155,7 @@ export async function moveSelectedPhotosToAlbumAction(
 
     return {
       success: `已移動 ${photoIds.length} 張照片到「${resolved.assignment.albumName}」。`,
+      resetKey: `${Date.now()}`,
     };
   } catch {
     return {

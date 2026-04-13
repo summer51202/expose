@@ -33,6 +33,24 @@ This v1 targets feedback 1-4:
 
 Feedback 5 album cover slideshow and feedback 6 admin comment replies remain in the backlog for later phases.
 
+### Implementation Status - 2026-04-13
+
+The 2026-04-13 v1 implementation is complete on branch `feat/admin-photo-management-design`.
+
+Delivered:
+
+- Multipage admin backend: `/admin`, `/admin/upload`, `/admin/photos`, `/admin/albums`, `/admin/comments`, `/admin/likes`.
+- Upload state correction: album is required, submit is disabled until album and files are selected, and selected files clear after successful upload.
+- Upload guardrails: 24 files per batch, 20MB per file, 200MB total batch limit, and a 220MB Server Action body limit.
+- Complete uploaded-photo management: all uploaded photos can be filtered, moved individually, or moved in bulk between albums.
+- Existing album, comment, and like management flows were preserved on dedicated pages.
+
+Still deferred:
+
+- Resumable/direct-to-R2 upload or true chunked upload with per-file progress if larger production batches are needed.
+- Album cover random slideshow.
+- Admin replies to viewer comments and responder-name rules.
+
 ---
 
 ## Development Priority

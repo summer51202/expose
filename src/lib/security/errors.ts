@@ -31,9 +31,9 @@ export function mapUploadErrorToMessage(error: unknown) {
       case "A file is larger than the per-file upload limit.":
         return "單張照片超過 20MB，請先縮小後再上傳。";
       case "Too many files were selected for one upload batch.":
-        return "單次最多可上傳 12 張照片，請分批處理。";
+        return "單次最多可上傳 100 張照片，請分批處理。";
       case "The selected batch is larger than the total upload size limit.":
-        return "本次上傳總大小超過 40MB，請分批處理。";
+        return "本次上傳總大小超過 200MB，請分批處理。";
       default:
         return error.message;
     }

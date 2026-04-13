@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 
 import {
   movePhotoToAlbumAction,
@@ -112,10 +112,14 @@ function PhotoMoveRow({
 export function PhotoManager({ photos, albums }: PhotoManagerProps) {
   const [filterAlbumId, setFilterAlbumId] = useState("all");
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<number[]>([]);
+  const [selectedAfterBulkResetKey, setSelectedAfterBulkResetKey] = useState("");
   const [bulkState, bulkFormAction, bulkPending] = useActionState(
     moveSelectedPhotosToAlbumAction,
     initialMoveState,
   );
+  const currentBulkResetKey = bulkState.resetKey ?? "";
+  const visibleSelectedPhotoIds =
+    selectedAfterBulkResetKey === currentBulkResetKey ? selectedPhotoIds : [];
 
   const filteredPhotos = useMemo(() => {
     if (filterAlbumId === "all") {
@@ -131,17 +135,14 @@ export function PhotoManager({ photos, albums }: PhotoManagerProps) {
   }, [filterAlbumId, photos]);
 
   const visiblePhotoIds = filteredPhotos.map((photo) => photo.id);
-  const visibleSelectedCount = visiblePhotoIds.filter((id) => selectedPhotoIds.includes(id)).length;
+  const visibleSelectedCount = visiblePhotoIds.filter((id) =>
+    visibleSelectedPhotoIds.includes(id),
+  ).length;
   const allVisibleSelected =
     visiblePhotoIds.length > 0 && visibleSelectedCount === visiblePhotoIds.length;
 
-  useEffect(() => {
-    if (bulkState.success) {
-      setSelectedPhotoIds([]);
-    }
-  }, [bulkState.success]);
-
   function togglePhoto(photoId: number, checked: boolean) {
+    setSelectedAfterBulkResetKey(currentBulkResetKey);
     setSelectedPhotoIds((current) =>
       checked
         ? Array.from(new Set([...current, photoId]))
@@ -150,6 +151,7 @@ export function PhotoManager({ photos, albums }: PhotoManagerProps) {
   }
 
   function toggleVisiblePhotos(checked: boolean) {
+    setSelectedAfterBulkResetKey(currentBulkResetKey);
     setSelectedPhotoIds((current) => {
       if (!checked) {
         return current.filter((id) => !visiblePhotoIds.includes(id));
@@ -198,11 +200,13 @@ export function PhotoManager({ photos, albums }: PhotoManagerProps) {
               />
               選取目前列表
             </label>
-            <span className="text-sm text-stone-600">已選 {selectedPhotoIds.length} 張</span>
+            <span className="text-sm text-stone-600">
+              已選 {visibleSelectedPhotoIds.length} 張
+            </span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {selectedPhotoIds.map((photoId) => (
+            {visibleSelectedPhotoIds.map((photoId) => (
               <input key={photoId} type="hidden" name="photoIds" value={photoId} />
             ))}
             <select
@@ -218,7 +222,7 @@ export function PhotoManager({ photos, albums }: PhotoManagerProps) {
                 </option>
               ))}
             </select>
-            <Button type="submit" disabled={selectedPhotoIds.length === 0 || bulkPending}>
+            <Button type="submit" disabled={visibleSelectedPhotoIds.length === 0 || bulkPending}>
               {bulkPending ? "批次移動中..." : "批次移動"}
             </Button>
           </div>
@@ -237,7 +241,7 @@ export function PhotoManager({ photos, albums }: PhotoManagerProps) {
               key={photo.id}
               photo={photo}
               albums={albums}
-              checked={selectedPhotoIds.includes(photo.id)}
+              checked={visibleSelectedPhotoIds.includes(photo.id)}
               onCheckedChange={(checked) => togglePhoto(photo.id, checked)}
             />
           ))

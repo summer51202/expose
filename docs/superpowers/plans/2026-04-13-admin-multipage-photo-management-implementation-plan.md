@@ -282,7 +282,7 @@ flowchart LR
 Create `src/lib/uploads/upload-limits.ts` with:
 
 ```ts
-export const MAX_UPLOAD_FILES = 24;
+export const MAX_UPLOAD_FILES = 100;
 export const MAX_UPLOAD_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 export const MAX_UPLOAD_TOTAL_SIZE_BYTES = 200 * 1024 * 1024;
 

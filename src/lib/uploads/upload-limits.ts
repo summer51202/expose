@@ -1,4 +1,4 @@
-export const MAX_UPLOAD_FILES = 24;
+﻿export const MAX_UPLOAD_FILES = 100;
 export const MAX_UPLOAD_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 export const MAX_UPLOAD_TOTAL_SIZE_BYTES = 200 * 1024 * 1024;
 
@@ -28,7 +28,7 @@ export function validateUploadInput({ files, albumId }: ValidateUploadInput) {
   const validFiles = files.filter((file) => file.size > 0);
 
   if (!albumId) {
-    throw new Error("請先選擇要放入的相簿。");
+    throw new Error("請先選擇要上傳到哪一本相簿。");
   }
 
   if (validFiles.length === 0) {
@@ -42,7 +42,9 @@ export function validateUploadInput({ files, albumId }: ValidateUploadInput) {
   const totalSize = validFiles.reduce((sum, file) => sum + file.size, 0);
   if (totalSize > MAX_UPLOAD_TOTAL_SIZE_BYTES) {
     throw new Error(
-      `這批照片共 ${formatBytes(totalSize)}，請控制在 ${formatBytes(MAX_UPLOAD_TOTAL_SIZE_BYTES)} 以內。`,
+      `整批上傳大小為 ${formatBytes(totalSize)}，不可超過 ${formatBytes(
+        MAX_UPLOAD_TOTAL_SIZE_BYTES,
+      )}。`,
     );
   }
 

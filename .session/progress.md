@@ -184,3 +184,19 @@
 1. 實際在前台首頁 / 相簿頁 / 照片頁抽查幾張舊圖，確認都顯示正常
 2. 正式上線前 rotate 已曝光過的 R2 access key / secret
 3. 之後若要把 `r2.dev` 換成 `img.<your-domain>`，只需切 `R2_PUBLIC_BASE_URL`
+### Session #006 - Admin Multipage Photo Management (2026-04-13)
+**Role**: Human + Agent (Coding Agent)
+**Goal**: Implement the 2026-04-13 v1 plan for multipage admin, complete uploaded-photo management, and upload state fixes.
+
+**Completed**:
+- Added shared admin shell and split admin workflows into `/admin/upload`, `/admin/photos`, `/admin/albums`, `/admin/comments`, and `/admin/likes`.
+- Converted `/admin` into a task dashboard with stats, workflow links, and recent uploads.
+- Added upload guardrails: required destination album, 24-file batch limit, 20MB single-file limit, 200MB total limit, and 220MB Server Action body limit.
+- Updated upload form state so successful uploads clear the selected file input and selected-file list while keeping the album selection.
+- Extended both manifest and Prisma photo repositories with single and bulk album reassignment support.
+- Added admin photo move Server Actions with session checks, album/photo validation, and affected path revalidation.
+- Added `/admin/photos` management UI with album filtering, row-level moves, bulk selection, and bulk moves.
+
+**Verification**:
+- `npm run build` passed after each implementation phase.
+- Final `.session/verify.ps1` passed on 2026-04-13 after cleaning stale verify build output.

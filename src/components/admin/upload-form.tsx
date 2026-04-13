@@ -51,19 +51,24 @@ function getUploadBatchMessage(error: string): string {
 
 export function UploadForm({ albums }: UploadFormProps) {
   const [state, formAction, pending] = useActionState(uploadPhotosAction, initialState);
-  const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([]);
   const [selectedAlbumId, setSelectedAlbumId] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([]);
+  const [selectedAfterResetKey, setSelectedAfterResetKey] = useState("");
+  const currentResetKey = state.resetKey ?? "";
+  const visibleSelectedFiles =
+    selectedAfterResetKey === currentResetKey ? selectedFiles : [];
 
   const selectionError = getUploadSelectionError({
     albumId: selectedAlbumId,
-    fileCount: selectedFiles.length,
+    fileCount: visibleSelectedFiles.length,
   });
-  const batchError = getUploadBatchError(selectedFiles);
-  const canSubmit = canSubmitUploadSelection({
-    albumId: selectedAlbumId,
-    fileCount: selectedFiles.length,
-  }) && !batchError;
-  const totalBytes = selectedFiles.reduce((sum, file) => sum + file.size, 0);
+  const batchError = getUploadBatchError(visibleSelectedFiles);
+  const canSubmit =
+    canSubmitUploadSelection({
+      albumId: selectedAlbumId,
+      fileCount: visibleSelectedFiles.length,
+    }) && !batchError;
+  const totalBytes = visibleSelectedFiles.reduce((sum, file) => sum + file.size, 0);
 
   return (
     <form action={formAction} className="grid gap-4">
@@ -72,6 +77,7 @@ export function UploadForm({ albums }: UploadFormProps) {
         <select
           name="albumId"
           value={selectedAlbumId}
+          required
           className="rounded-2xl border border-line bg-white px-4 py-3 outline-none transition focus:border-stone-400"
           onChange={(event) => {
             setSelectedAlbumId(event.currentTarget.value);
@@ -100,6 +106,11 @@ export function UploadForm({ albums }: UploadFormProps) {
           <p className="mx-auto max-w-md text-sm leading-7 text-stone-600">
             系統會自動產生原圖、中圖 1200px 與縮圖 400px，方便前台載入與瀏覽。
           </p>
+          <p className="mx-auto max-w-md text-sm leading-7 text-stone-600">
+            支援 JPG、PNG、WebP、AVIF。單張上限 {formatUploadBytes(UPLOAD_MAX_FILE_SIZE)}
+            ，一次最多 {UPLOAD_MAX_FILES} 張，整批上限{" "}
+            {formatUploadBytes(UPLOAD_MAX_TOTAL_BYTES)}。
+          </p>
           <div className="inline-flex rounded-full border border-line bg-white px-4 py-2 text-sm text-stone-700">
             挑選圖片
           </div>
@@ -107,6 +118,7 @@ export function UploadForm({ albums }: UploadFormProps) {
       </label>
 
       <input
+        key={currentResetKey}
         id="photos"
         name="photos"
         type="file"
@@ -122,32 +134,33 @@ export function UploadForm({ albums }: UploadFormProps) {
               type: file.type,
             })),
           );
+          setSelectedAfterResetKey(currentResetKey);
         }}
       />
 
       <div className="rounded-2xl border border-line bg-white/80 px-4 py-3">
         <div className="flex flex-wrap gap-4 text-sm text-stone-600">
-          <span>已選擇 {selectedFiles.length} 張</span>
+          <span>已選擇 {visibleSelectedFiles.length} 張</span>
           <span>總大小 {formatUploadBytes(totalBytes)}</span>
           <span>單次上限 {UPLOAD_MAX_FILES} 張</span>
           <span>總量上限 {formatUploadBytes(UPLOAD_MAX_TOTAL_BYTES)}</span>
           <span>單張上限 {formatUploadBytes(UPLOAD_MAX_FILE_SIZE)}</span>
         </div>
 
-        {selectedFiles.length > 0 ? (
+        {visibleSelectedFiles.length > 0 ? (
           <div className="mt-3 grid gap-2">
             <div className="flex flex-wrap gap-2">
-              {selectedFiles.slice(0, 6).map((file) => (
+              {visibleSelectedFiles.slice(0, 6).map((file) => (
                 <span
-                  key={file.name}
+                  key={`${file.name}-${file.size}`}
                   className="rounded-full border border-line bg-stone-50 px-3 py-1 text-xs text-stone-700"
                 >
                   {file.name}
                 </span>
               ))}
-              {selectedFiles.length > 6 ? (
+              {visibleSelectedFiles.length > 6 ? (
                 <span className="rounded-full border border-line bg-stone-50 px-3 py-1 text-xs text-stone-700">
-                  另有 {selectedFiles.length - 6} 張
+                  另有 {visibleSelectedFiles.length - 6} 張
                 </span>
               ) : null}
             </div>
@@ -176,7 +189,7 @@ export function UploadForm({ albums }: UploadFormProps) {
           {pending ? "上傳中..." : "開始上傳"}
         </Button>
         <p className="text-sm leading-6 text-stone-600">
-          若本次超過 12 張、總大小超過 40MB，或有單張超過 20MB，請分批上傳。
+          請先選擇目的相簿。上傳成功後，已選照片會自動清空，相簿選擇會保留，方便繼續上傳下一批。
         </p>
       </div>
     </form>
