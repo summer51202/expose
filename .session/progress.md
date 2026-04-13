@@ -200,3 +200,6 @@
 **Verification**:
 - `npm run build` passed after each implementation phase.
 - Final `.session/verify.ps1` passed on 2026-04-13 after cleaning stale verify build output.
+
+**Follow-up adjustment**:
+- Upload count guardrail was raised from 24 to 100 photos per batch to match the operator habit of uploading 50-100 photos at once while keeping the 200MB total batch limit.

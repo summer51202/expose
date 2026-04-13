@@ -41,7 +41,7 @@ Delivered:
 
 - Multipage admin backend: `/admin`, `/admin/upload`, `/admin/photos`, `/admin/albums`, `/admin/comments`, `/admin/likes`.
 - Upload state correction: album is required, submit is disabled until album and files are selected, and selected files clear after successful upload.
-- Upload guardrails: 24 files per batch, 20MB per file, 200MB total batch limit, and a 220MB Server Action body limit.
+- Upload guardrails: 100 files per batch, 20MB per file, 200MB total batch limit, and a 220MB Server Action body limit.
 - Complete uploaded-photo management: all uploaded photos can be filtered, moved individually, or moved in bulk between albums.
 - Existing album, comment, and like management flows were preserved on dedicated pages.
 
