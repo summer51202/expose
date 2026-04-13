@@ -51,6 +51,7 @@ export async function createAlbumAction(
 
   revalidatePath("/");
   revalidatePath("/admin");
+  revalidatePath("/admin/albums");
   revalidatePath(`/albums/${record.slug}`);
 
   return {
@@ -102,6 +103,7 @@ export async function updateAlbumAction(
 
   revalidatePath("/");
   revalidatePath("/admin");
+  revalidatePath("/admin/albums");
   revalidatePath(`/albums/${targetAlbum.slug}`);
   revalidatePath(`/albums/${nextSlug}`);
 

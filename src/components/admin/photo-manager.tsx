@@ -238,7 +238,7 @@ export function PhotoManager({ photos, albums }: PhotoManagerProps) {
         {filteredPhotos.length > 0 ? (
           filteredPhotos.map((photo) => (
             <PhotoMoveRow
-              key={photo.id}
+              key={`${photo.id}-${photo.albumId ?? "unassigned"}`}
               photo={photo}
               albums={albums}
               checked={visibleSelectedPhotoIds.includes(photo.id)}
