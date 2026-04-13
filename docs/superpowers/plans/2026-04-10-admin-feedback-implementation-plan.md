@@ -1,79 +1,79 @@
-# Admin Feedback Improvements Implementation Plan
+# 管理後台回饋改善實作計畫
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **給 agentic workers：** 必要子技能：請使用 superpowers:subagent-driven-development（建議）或 superpowers:executing-plans，逐項任務實作本計畫。步驟使用 checkbox（`- [ ]`）語法追蹤。
 
-**Goal:** Turn the current user feedback backlog into a staged implementation plan that improves upload safety, album management, admin usability, comment replies, and album-cover presentation.
+**目標：** 將目前的使用者回饋待辦整理成分階段實作計畫，改善上傳安全性、相簿管理、管理後台可用性、留言回覆，以及相簿封面呈現。
 
-**Architecture:** Start with the highest-risk operational workflow: prevent wrong uploads and make post-upload corrections possible. Then harden the upload pipeline, productize the admin UI around real tasks, and finally add visual polish for album covers. Keep the implementation aligned with the current Next.js 16 + Server Actions + Prisma/manifest repository split instead of introducing a new admin subsystem.
+**架構：** 先處理風險最高的營運流程：避免上傳到錯誤目的地，並讓上傳後的修正成為可能。接著強化上傳流程，將管理後台 UI 產品化到能支援真實任務，最後為相簿封面增加視覺打磨。實作需貼合目前 Next.js 16 + Server Actions + Prisma/manifest repository 的分層，不引入新的管理子系統。
 
-**Tech Stack:** Next.js 16 App Router, React 19, TypeScript, Server Actions, Prisma + SQLite, manifest fallback repositories, Cloudflare R2, Tailwind CSS 4
+**技術棧：** Next.js 16 App Router、React 19、TypeScript、Server Actions、Prisma + SQLite、manifest fallback repositories、Cloudflare R2、Tailwind CSS 4
 
 ---
 
-## Scope
+## 範圍
 
-This plan covers the six feedback items currently tracked in:
+本計畫涵蓋目前追蹤於以下文件的六項回饋：
 
 - `docs/issue-tracker/user-feedback-backlog.md`
 
-Planned delivery order:
+規劃交付順序：
 
-1. Upload destination must be explicit.
-2. Admin can reassign photos to the correct album after upload.
-3. Large upload batches fail safely or complete reliably.
-4. Admin dashboard becomes production-oriented instead of prototype-oriented.
-5. Admin can reply to viewer comments with a defined owner display name.
-6. Album covers can rotate through album images like the hero section.
+1. 上傳目的地必須明確。
+2. 管理員可在上傳後將照片重新指派到正確相簿。
+3. 大批次上傳必須安全失敗或可靠完成。
+4. 管理後台從原型導向調整為產品導向。
+5. 管理員可用明確的站主顯示名稱回覆訪客留言。
+6. 相簿封面可像 hero 區塊一樣輪播相簿圖片。
 
 ---
 
-## File Map
+## 檔案地圖
 
-### Existing files likely to change
+### 可能會修改的既有檔案
 
 - `src/components/admin/upload-form.tsx`
-  - Upload destination UX, client-side validation, batch guardrails, progress/failure messaging.
+  - 上傳目的地 UX、用戶端驗證、批次 guardrails、進度/失敗訊息。
 - `src/app/admin/upload-actions.ts`
-  - Server action validation for required destination and safer upload error handling.
+  - 伺服器 action 對必要目的地的驗證，以及更安全的上傳錯誤處理。
 - `src/lib/uploads/upload-service.ts`
-  - Upload batching, total-size checks, and non-hanging failure behavior.
+  - 上傳批次、總大小檢查，以及不會卡住的失敗行為。
 - `src/app/admin/page.tsx`
-  - Admin information architecture and placement of album-management and comment-reply controls.
+  - 管理後台資訊架構，以及相簿管理與留言回覆控制項的位置。
 - `src/components/admin/album-editor-form.tsx`
-  - Album metadata editing may be extended with management entry points.
+  - 相簿 metadata 編輯可能會延伸加入管理入口。
 - `src/lib/photos/repository.ts`
-  - Add photo reassignment capability in both Prisma and manifest implementations.
+  - 在 Prisma 與 manifest 實作中加入照片重新指派能力。
 - `src/lib/photos/queries.ts`
-  - Support admin-facing photo lookup/grouping for album management UI.
+  - 支援管理介面的照片查詢/分組。
 - `src/lib/albums/queries.ts`
-  - Continue providing album options and possibly enriched album-cover slideshow data.
+  - 持續提供相簿選項，並可能提供加強版的相簿封面輪播資料。
 - `src/components/admin/comment-moderation-list.tsx`
-  - Expand from delete-only moderation to moderation + reply.
+  - 從僅刪除的 moderation 擴充為 moderation + reply。
 - `src/app/admin/engagement-actions.ts`
-  - Add server action for owner replies.
+  - 新增站主回覆的 server action。
 - `src/app/photos/comment-actions.ts`
-  - Keep public comment creation compatible with owner replies.
+  - 保持公開留言建立流程與站主回覆相容。
 - `src/components/comments/comment-list.tsx`
-  - Render owner replies distinctly under viewer comments.
+  - 在訪客留言下方以不同樣式呈現站主回覆。
 - `src/app/photos/[source]/[id]/page.tsx`
-  - Feed comment thread data and render updated comment UI.
+  - 提供留言 thread 資料並渲染更新後的留言 UI。
 - `prisma/schema.prisma`
-  - Add reply structure if replies are stored in a dedicated relation or in `Comment`.
+  - 若回覆以獨立 relation 或存在 `Comment` 中，新增回覆結構。
 
-### New files likely to be added
+### 可能會新增的檔案
 
 - `src/components/admin/photo-album-manager.tsx`
-  - Admin UI for reassigning photos to albums.
+  - 用於將照片重新指派到相簿的管理 UI。
 - `src/app/admin/photo-actions.ts`
-  - Server actions for photo reassignment and bulk move.
+  - 照片重新指派與批次移動的 server actions。
 - `src/lib/comments/thread-types.ts`
-  - Shared types for viewer comments + owner replies if current `CommentRecord` becomes insufficient.
+  - 若現有 `CommentRecord` 不足，提供訪客留言 + 站主回覆的共享型別。
 - `src/components/admin/comment-reply-form.tsx`
-  - Inline admin reply form in the moderation area.
+  - moderation 區域中的 inline 管理員回覆表單。
 - `src/components/albums/album-cover-slideshow.tsx`
-  - Reusable slideshow UI for album cover presentation.
+  - 可重用的相簿封面輪播 UI。
 
-### Verification surfaces
+### 驗證介面
 
 - `/admin`
 - `/albums/[slug]`
@@ -82,525 +82,525 @@ Planned delivery order:
 
 ---
 
-## Decisions To Lock Before Coding
+## 開始寫程式前需要鎖定的決策
 
-### Decision 1: Upload destination remains required
+### 決策 1：上傳目的地維持必填
 
-Use an empty placeholder as the default state. Do not silently fall back to "unclassified."
+使用空白 placeholder 作為預設狀態。不要靜默 fallback 到「未分類」。
 
-### Decision 2: Album correction is photo reassignment, not forced re-upload
+### 決策 2：相簿修正是照片重新指派，不是強迫重新上傳
 
-Fix wrong uploads by updating photo-to-album assignment in stored data. Do not require users to upload the same files again.
+透過更新已儲存資料中的照片與相簿關聯來修正錯誤上傳。不要要求使用者重新上傳同一批檔案。
 
-### Decision 3: Owner replies use one fixed public display name
+### 決策 3：站主回覆使用單一固定公開顯示名稱
 
-Use a single configured owner/brand display name for v1. Do not introduce multi-admin identities unless the product actually needs them.
+v1 使用一個設定好的站主/品牌顯示名稱。除非產品真的需要，否則不要引入多管理員身份。
 
-Recommended v1 source:
+建議的 v1 來源：
 
-- `SITE_OWNER_NAME` env/config value if available, otherwise a site-config constant.
+- 若可用，使用 `SITE_OWNER_NAME` env/config value；否則使用 site-config constant。
 
-### Decision 4: Album cover slideshow is lightweight
+### 決策 4：相簿封面輪播保持輕量
 
-Prefer a small rotating set of album images with CSS/React timing similar to the hero. Do not create a heavy client-only gallery subsystem for album cards.
+偏好使用少量相簿圖片，搭配類似 hero 的 CSS/React timing 做輪播。不要為相簿卡片建立沉重的 client-only gallery 子系統。
 
 ---
 
-## Task 1: Enforce Required Upload Destination
+## 任務 1：強制要求上傳目的地
 
-**Files:**
-- Modify: `src/components/admin/upload-form.tsx`
-- Modify: `src/app/admin/upload-actions.ts`
-- Modify: `src/lib/uploads/upload-service.ts`
+**檔案：**
+- 修改：`src/components/admin/upload-form.tsx`
+- 修改：`src/app/admin/upload-actions.ts`
+- 修改：`src/lib/uploads/upload-service.ts`
 
-- [ ] **Step 1: Lock the validation rule in the server path**
+- [ ] **步驟 1：在伺服器路徑鎖定驗證規則**
 
-Implement the rule that missing `albumId` is invalid even if the client submits the form manually.
+實作缺少 `albumId` 時即為無效的規則，即使用戶端手動送出表單也一樣。
 
-Expected behavior:
+預期行為：
 
-- `uploadPhotosAction` rejects empty destination.
-- `uploadPhotos` rejects `albumId: null`.
-- Error copy clearly says album selection is required.
+- `uploadPhotosAction` 拒絕空白目的地。
+- `uploadPhotos` 拒絕 `albumId: null`。
+- 錯誤文案清楚說明必須選擇相簿。
 
-- [ ] **Step 2: Align the client form with the server rule**
+- [ ] **步驟 2：讓用戶端表單對齊伺服器規則**
 
-Update the upload form so the placeholder remains selected by default and the submit button is disabled until:
+更新上傳表單，使 placeholder 預設保持選取，並且送出按鈕在以下條件成立前維持 disabled：
 
-- at least one file is selected
-- a valid album is selected
+- 已選擇至少一個檔案
+- 已選擇有效相簿
 
-UI requirements:
+UI 需求：
 
-- visible placeholder text such as `請先選擇上傳相簿`
-- inline validation near the select control
-- no misleading success path when destination is missing
+- 可見的 placeholder 文字，例如 `請選擇上傳相簿`
+- select 控制項附近有 inline 驗證訊息
+- 目的地缺失時不可出現誤導性的成功路徑
 
-- [ ] **Step 3: Keep the current form accessible**
+- [ ] **步驟 3：保持現有表單可存取性**
 
-Ensure the disabled/enabled state is understandable:
+確保 disabled/enabled 狀態可理解：
 
-- preserve label + select semantics
-- keep keyboard submission behavior correct
-- do not hide the validation rule only in color
+- 保留 label + select 語意
+- 保持鍵盤送出行為正確
+- 不要只用顏色隱藏驗證規則
 
-- [ ] **Step 4: Verify the flow manually**
+- [ ] **步驟 4：手動驗證流程**
 
-Check:
+檢查：
 
-- submit with no album is blocked in UI
-- forced submit with no album still fails in server action
-- valid album + files still uploads normally
+- 未選相簿時 UI 會阻止送出
+- 強制送出且未選相簿時 server action 仍會失敗
+- 有效相簿 + 檔案仍可正常上傳
 
-Run:
+執行：
 
 ```powershell
 npm run build
 ```
 
-Expected:
+預期：
 
-- build succeeds
-- upload form compiles with no type issues
+- build 成功
+- 上傳表單編譯時沒有型別問題
 
 ---
 
-## Task 2: Add Post-Upload Album Reassignment
+## 任務 2：新增上傳後相簿重新指派
 
-**Files:**
-- Create: `src/components/admin/photo-album-manager.tsx`
-- Create: `src/app/admin/photo-actions.ts`
-- Modify: `src/app/admin/page.tsx`
-- Modify: `src/lib/photos/repository.ts`
-- Modify: `src/lib/photos/queries.ts`
-- Modify: `src/types/photo.ts`
+**檔案：**
+- 新增：`src/components/admin/photo-album-manager.tsx`
+- 新增：`src/app/admin/photo-actions.ts`
+- 修改：`src/app/admin/page.tsx`
+- 修改：`src/lib/photos/repository.ts`
+- 修改：`src/lib/photos/queries.ts`
+- 修改：`src/types/photo.ts`
 
-- [ ] **Step 1: Extend the repository contract**
+- [ ] **步驟 1：擴充 repository contract**
 
-Add methods for:
+新增方法：
 
-- moving one photo to another album
-- moving multiple photos to another album
-- listing recent uploaded photos with album metadata suitable for admin editing
+- 將單張照片移到另一個相簿
+- 將多張照片移到另一個相簿
+- 列出最近上傳的照片，並附上適合管理編輯的相簿 metadata
 
-Both repository paths must work:
+兩條 repository 路徑都必須可用：
 
 - Prisma-backed uploaded photos
 - manifest-backed uploaded photos
 
-- [ ] **Step 2: Add admin server actions for reassignment**
+- [ ] **步驟 2：新增重新指派用的管理員 server actions**
 
-Create actions that:
+建立 actions，需：
 
-- require admin session
-- validate source photo ids and destination album id
-- update data through the repository
-- revalidate `/admin`, `/`, `/albums/[slug]`, and affected photo pages
+- 要求 admin session
+- 驗證來源照片 id 與目的相簿 id
+- 透過 repository 更新資料
+- revalidate `/admin`、`/`、`/albums/[slug]` 與受影響的照片頁
 
-- [ ] **Step 3: Add admin UI for correction**
+- [ ] **步驟 3：新增修正用管理 UI**
 
-Render a photo management section on `/admin` with:
+在 `/admin` 渲染照片管理區塊，包含：
 
-- recent uploaded photos
-- current album label
-- a destination album selector
-- move action for one photo
+- 最近上傳的照片
+- 目前相簿標籤
+- 目的相簿 selector
+- 單張照片移動 action
 
-If the UI supports bulk move in the first pass, include:
+若第一版 UI 支援批次移動，請包含：
 
 - row selection
-- one destination selector
-- one bulk submit action
+- 一個目的地 selector
+- 一個批次送出 action
 
-If bulk move adds too much risk, ship single-photo reassignment first and leave bulk move as a follow-up subtask inside the same feature.
+若批次移動風險過高，先交付單張照片重新指派，並在同 feature 內留下批次移動 follow-up subtask。
 
-- [ ] **Step 4: Preserve current album metadata editing**
+- [ ] **步驟 4：保留目前相簿 metadata 編輯**
 
-Do not regress:
+不要讓以下功能 regression：
 
-- album name update
-- album description update
-- album list rendering
+- 相簿名稱更新
+- 相簿描述更新
+- 相簿列表渲染
 
-- [ ] **Step 5: Verify album reassignment end-to-end**
+- [ ] **步驟 5：端到端驗證相簿重新指派**
 
-Check:
+檢查：
 
-- photo moves from wrong album to correct album in admin
-- album counts update
-- public album page reflects new membership
-- photo detail page still loads
+- 照片可在管理後台從錯誤相簿移到正確相簿
+- 相簿數量更新
+- 公開相簿頁反映新的歸屬
+- 照片詳情頁仍可載入
 
-Run:
-
-```powershell
-npm run build
-```
-
-Expected:
-
-- build succeeds
-- no broken admin imports or repository types
-
----
-
-## Task 3: Harden Large Upload Behavior
-
-**Files:**
-- Modify: `src/lib/uploads/upload-service.ts`
-- Modify: `src/app/admin/upload-actions.ts`
-- Modify: `src/components/admin/upload-form.tsx`
-- Modify if needed: `next.config.ts`
-
-- [ ] **Step 1: Define explicit upload guardrails**
-
-Set and document v1 constraints:
-
-- max files per batch
-- max total payload size per submission
-- per-file size limit
-
-Recommended direction:
-
-- keep per-file limit
-- add total-size limit
-- add file-count limit
-
-- [ ] **Step 2: Fail early before expensive image processing**
-
-In `upload-service`, validate:
-
-- file count
-- total bytes
-- supported mime types
-- empty-file filtering
-
-Return actionable error messages before calling Sharp/image processing.
-
-- [ ] **Step 3: Reduce all-or-nothing behavior**
-
-Choose one:
-
-- sequential processing with progress-safe reporting
-- small internal batches with per-batch persistence
-
-Recommended v1 approach:
-
-- sequential processing or small batches
-- stop on first fatal error
-- return a message that indicates how many files completed before failure
-
-- [ ] **Step 4: Improve admin feedback**
-
-Update the form copy so users see:
-
-- allowed file types
-- file-count limit
-- total-size limit
-- error message without needing a browser refresh
-
-- [ ] **Step 5: Re-check platform limits**
-
-Confirm whether `serverActions.bodySizeLimit` in `next.config.ts` still matches the intended upload experience after new guardrails are added.
-
-- [ ] **Step 6: Verify with realistic batches**
-
-Manual verification targets:
-
-- small valid batch uploads successfully
-- oversize total batch fails with clear message
-- oversize single file fails with clear message
-- page remains interactive after failure
-
-Run:
+執行：
 
 ```powershell
 npm run build
 ```
 
-Expected:
+預期：
 
-- build succeeds
-- no runtime-only assumptions leak into the client component
+- build 成功
+- 沒有壞掉的 admin imports 或 repository types
 
 ---
 
-## Task 4: Productize the Admin Dashboard
+## 任務 3：強化大批次上傳行為
 
-**Files:**
-- Modify: `src/app/admin/page.tsx`
-- Modify: `src/components/admin/upload-form.tsx`
-- Modify: `src/components/admin/album-editor-form.tsx`
-- Modify: `src/components/admin/comment-moderation-list.tsx`
-- Modify: `src/components/admin/like-summary-list.tsx`
+**檔案：**
+- 修改：`src/lib/uploads/upload-service.ts`
+- 修改：`src/app/admin/upload-actions.ts`
+- 修改：`src/components/admin/upload-form.tsx`
+- 視需要修改：`next.config.ts`
 
-- [ ] **Step 1: Audit and remove prototype framing**
+- [ ] **步驟 1：定義明確的上傳 guardrails**
 
-Replace explanatory/mockup-heavy copy with task-oriented UI copy.
+設定並記錄 v1 限制：
 
-Target tone:
+- 每批最大檔案數：100 張
+- 每次送出的 payload 總大小上限：200MB
+- 單檔大小限制：20MB
 
-- concise
-- operator-focused
-- production-like
+建議方向：
 
-- [ ] **Step 2: Reorganize the page around real tasks**
+- 保留單檔限制
+- 新增總大小限制
+- 新增檔案數限制，但設定為符合實際使用習慣的高上限，讓 50-100 張照片可一次選取
 
-Recommended top-level sections:
+- [ ] **步驟 2：在昂貴圖片處理前提早失敗**
 
-- Upload photos
-- Manage photos/albums
-- Manage comments
-- Review engagement
+在 `upload-service` 驗證：
 
-Avoid phase labels if they read like an internal roadmap instead of an admin interface.
+- 檔案數
+- 總 bytes
+- 支援的 MIME types
+- 空檔案過濾
 
-- [ ] **Step 3: Improve scanability**
+在呼叫 Sharp/image processing 前回傳可行動的錯誤訊息。
 
-Reduce long descriptive paragraphs and prefer:
+- [ ] **步驟 3：降低全有或全無行為**
 
-- short supporting descriptions
-- clearer action labels
-- grouped controls
+選擇其一：
 
-- [ ] **Step 4: Preserve current functionality**
+- 依序處理，並提供 progress-safe reporting
+- 小型內部批次，搭配每批 persistence
 
-Do not break:
+建議的 v1 作法：
+
+- 依序處理或小批次處理
+- 遇到第一個 fatal error 時停止
+- 回傳訊息指出失敗前已完成多少檔案
+
+- [ ] **步驟 4：改善管理員回饋**
+
+更新表單文案，讓使用者看到：
+
+- 允許的檔案類型
+- 檔案數限制
+- 總大小限制
+- 不需重新整理瀏覽器即可看到錯誤訊息
+
+- [ ] **步驟 5：重新檢查平台限制**
+
+確認 `next.config.ts` 中的 `serverActions.bodySizeLimit` 是否仍符合新增 guardrails 後的目標上傳體驗。
+
+- [ ] **步驟 6：用真實批次驗證**
+
+手動驗證目標：
+
+- 小型有效批次可成功上傳
+- 總大小超限的批次會以清楚訊息失敗
+- 單檔超限會以清楚訊息失敗
+- 失敗後頁面仍可互動
+
+執行：
+
+```powershell
+npm run build
+```
+
+預期：
+
+- build 成功
+- 沒有 runtime-only assumptions 洩漏到 client component
+
+---
+
+## 任務 4：將管理後台產品化
+
+**檔案：**
+- 修改：`src/app/admin/page.tsx`
+- 修改：`src/components/admin/upload-form.tsx`
+- 修改：`src/components/admin/album-editor-form.tsx`
+- 修改：`src/components/admin/comment-moderation-list.tsx`
+- 修改：`src/components/admin/like-summary-list.tsx`
+
+- [ ] **步驟 1：盤點並移除原型語氣**
+
+將偏解釋/偏 mockup 的文案替換成任務導向 UI 文案。
+
+目標語氣：
+
+- 簡潔
+- 面向操作者
+- 像正式產品
+
+- [ ] **步驟 2：圍繞真實任務重整頁面**
+
+建議的頂層區塊：
+
+- 上傳照片
+- 管理照片/相簿
+- 管理留言
+- 查看互動
+
+若階段標籤讀起來像內部 roadmap，而不是管理介面，請避免使用。
+
+- [ ] **步驟 3：改善可掃讀性**
+
+減少冗長描述段落，偏好：
+
+- 短輔助說明
+- 更清楚的 action labels
+- 分組控制項
+
+- [ ] **步驟 4：保留目前功能**
+
+不要破壞：
 
 - logout
-- album editing
-- upload access
-- comment moderation
-- like clearing
+- 相簿編輯
+- 上傳入口
+- 留言 moderation
+- 清除 likes
 
-- [ ] **Step 5: Verify the dashboard reads as production UI**
+- [ ] **步驟 5：驗證後台讀起來像正式產品 UI**
 
-Manual review:
+手動檢查：
 
-- no "local dev", "phase", or tutorial-heavy wording unless intentionally retained
-- first-screen actions are understandable in under 10 seconds
+- 除非刻意保留，否則不應出現「local dev」、「phase」或教程式重文案
+- 首屏 action 可在 10 秒內理解
 
-Run:
-
-```powershell
-npm run build
-```
-
-Expected:
-
-- admin page compiles and renders with the updated structure
-
----
-
-## Task 5: Add Owner Replies To Viewer Comments
-
-**Files:**
-- Modify: `prisma/schema.prisma`
-- Modify: `src/lib/comments/repository.ts`
-- Modify: `src/lib/comments/queries.ts`
-- Modify: `src/app/admin/engagement-actions.ts`
-- Modify: `src/components/admin/comment-moderation-list.tsx`
-- Modify: `src/components/comments/comment-list.tsx`
-- Modify: `src/app/photos/[source]/[id]/page.tsx`
-- Create: `src/components/admin/comment-reply-form.tsx`
-- Create if needed: `src/types/comment-thread.ts`
-- Modify if needed: `src/config/site.ts`
-
-- [ ] **Step 1: Choose the reply data model**
-
-Recommended v1 shape:
-
-- keep viewer comments as the primary public entry
-- attach at most one owner reply per viewer comment
-
-This can be implemented as:
-
-- extra fields on `Comment`, or
-- a separate reply relation/table
-
-Prefer the option that keeps public rendering and admin authoring simple.
-
-- [ ] **Step 2: Define responder identity**
-
-Expose one public owner label such as:
-
-- site owner name
-- studio name
-- brand name
-
-Do not derive the public reply label from the admin login username unless the product explicitly wants that behavior.
-
-- [ ] **Step 3: Implement repository/query support**
-
-Add methods to:
-
-- create owner reply
-- fetch comments with optional owner reply
-- preserve delete-comment behavior
-
-If deleting a parent comment should also remove the owner reply, make that explicit in the data model and query layer.
-
-- [ ] **Step 4: Add admin reply UI**
-
-In the admin comment section, each comment should support:
-
-- viewing existing owner reply if present
-- entering a reply if absent
-- optionally editing/removing the reply in a later pass
-
-For v1, reply-once is acceptable if it keeps scope controlled.
-
-- [ ] **Step 5: Render replies publicly**
-
-On the public photo page:
-
-- show owner reply nested or visually attached below the viewer comment
-- use a clear owner badge/name
-- keep visitor nickname and owner reply styling distinct
-
-- [ ] **Step 6: Verify the comment thread flow**
-
-Check:
-
-- visitor leaves comment
-- admin sees comment in backend
-- admin replies
-- public page shows reply with the configured owner identity
-
-Run:
+執行：
 
 ```powershell
 npm run build
 ```
 
-Expected:
+預期：
 
-- schema/types align
-- comment list renders without thread-shape mismatches
+- admin page 可編譯並以更新後的結構渲染
 
 ---
 
-## Task 6: Add Album Cover Random Slideshow
+## 任務 5：為訪客留言新增站主回覆
 
-**Files:**
-- Create: `src/components/albums/album-cover-slideshow.tsx`
-- Modify: `src/lib/albums/queries.ts`
-- Modify: `src/app/(browse)/page.tsx`
-- Modify: `src/app/albums/[slug]/page.tsx`
-- Modify any album card/list component that currently renders static cover imagery
+**檔案：**
+- 修改：`prisma/schema.prisma`
+- 修改：`src/lib/comments/repository.ts`
+- 修改：`src/lib/comments/queries.ts`
+- 修改：`src/app/admin/engagement-actions.ts`
+- 修改：`src/components/admin/comment-moderation-list.tsx`
+- 修改：`src/components/comments/comment-list.tsx`
+- 修改：`src/app/photos/[source]/[id]/page.tsx`
+- 新增：`src/components/admin/comment-reply-form.tsx`
+- 視需要新增：`src/types/comment-thread.ts`
+- 視需要修改：`src/config/site.ts`
 
-- [ ] **Step 1: Decide slideshow placement**
+- [ ] **步驟 1：選擇回覆資料模型**
 
-Recommended v1 rollout:
+建議的 v1 形狀：
 
-- start with album cards or album strip cover areas
-- extend to album detail header only if the first placement performs well
+- 保留訪客留言作為主要公開項目
+- 每則訪客留言最多附上一則站主回覆
 
-- [ ] **Step 2: Prepare album image data**
+可實作為：
 
-Update album queries to return a small set of candidate image URLs per album, not just a single cover.
+- `Comment` 上的額外欄位，或
+- 獨立的 reply relation/table
 
-Keep data payloads bounded:
+偏好能讓公開渲染與管理員撰寫保持簡單的選項。
 
-- use medium or thumbnail URLs
-- limit to a small number of images per album
+- [ ] **步驟 2：定義回覆者身份**
 
-- [ ] **Step 3: Build a lightweight slideshow component**
+公開顯示一個站主 label，例如：
 
-Reuse the hero interaction style where it fits:
+- 網站主理人名稱
+- 工作室名稱
+- 品牌名稱
 
-- timed rotation
-- subtle crossfade
-- fallback to one image when only one exists
+除非產品明確需要，否則不要從 admin login username 推導公開回覆 label。
 
-Avoid adding a heavy animation dependency beyond what the repo already uses.
+- [ ] **步驟 3：實作 repository/query 支援**
 
-- [ ] **Step 4: Integrate without regressing layout**
+新增方法：
 
-Ensure:
+- 建立站主回覆
+- 取得包含可選站主回覆的留言
+- 保留刪除留言行為
 
-- desktop and mobile layouts still work
-- no layout shift from changing image heights
-- album pages still feel fast
+若刪除 parent comment 也應刪除站主回覆，請在資料模型與 query layer 中明確處理。
 
-- [ ] **Step 5: Verify visual consistency**
+- [ ] **步驟 4：新增管理員回覆 UI**
 
-Manual review:
+在管理留言區，每則留言應支援：
 
-- slideshow feels related to the hero but not duplicated awkwardly
-- albums with few photos still render well
-- no broken images when an album lacks enough assets
+- 若已有站主回覆，顯示該回覆
+- 若尚無回覆，輸入一則回覆
+- 編輯/移除回覆可留待後續 pass
 
-Run:
+v1 若為了控制 scope，reply-once 是可接受的。
+
+- [ ] **步驟 5：公開渲染回覆**
+
+在公開照片頁：
+
+- 將站主回覆嵌套或視覺連結於訪客留言下方
+- 使用清楚的站主 badge/name
+- 讓訪客暱稱與站主回覆樣式有所區別
+
+- [ ] **步驟 6：驗證留言 thread 流程**
+
+檢查：
+
+- 訪客留下留言
+- 管理員在後台看到留言
+- 管理員回覆
+- 公開頁以設定好的站主身份顯示回覆
+
+執行：
 
 ```powershell
 npm run build
 ```
 
-Expected:
+預期：
 
-- build succeeds
-- slideshow component does not break SSR/hydration boundaries
-
----
-
-## Recommended Milestones
-
-### Milestone 1: Upload safety baseline
-
-- Task 1: Enforce Required Upload Destination
-- Task 2: Add Post-Upload Album Reassignment
-
-Release value:
-
-- prevents common mistakes
-- gives admin an immediate recovery path
-
-### Milestone 2: Upload reliability
-
-- Task 3: Harden Large Upload Behavior
-
-Release value:
-
-- reduces crashes and refresh-required failures
-
-### Milestone 3: Admin productization
-
-- Task 4: Productize the Admin Dashboard
-- Task 5: Add Owner Replies To Viewer Comments
-
-Release value:
-
-- makes the backend feel production-ready
-- enables owner-to-viewer interaction
-
-### Milestone 4: Visual polish
-
-- Task 6: Add Album Cover Random Slideshow
-
-Release value:
-
-- improves album preview quality and site identity
+- schema/types 對齊
+- comment list 渲染時沒有 thread shape mismatch
 
 ---
 
-## Verification Checklist
+## 任務 6：新增相簿封面隨機輪播
 
-- [ ] Upload form blocks missing destination in both client and server paths
-- [ ] Admin can move wrongly uploaded photos to another album
-- [ ] Oversized upload batches fail without hanging the page
-- [ ] Admin dashboard copy and layout feel production-oriented
-- [ ] Admin can reply to viewer comments with one defined owner display name
-- [ ] Public photo page displays owner replies correctly
-- [ ] Album cover slideshow uses album-owned images and degrades gracefully
-- [ ] `npm run build` succeeds after each milestone
-- [ ] `.session/verify.ps1` passes before claiming completion
+**檔案：**
+- 新增：`src/components/albums/album-cover-slideshow.tsx`
+- 修改：`src/lib/albums/queries.ts`
+- 修改：`src/app/(browse)/page.tsx`
+- 修改：`src/app/albums/[slug]/page.tsx`
+- 修改任何目前渲染靜態封面圖的 album card/list component
+
+- [ ] **步驟 1：決定輪播位置**
+
+建議的 v1 推出方式：
+
+- 從相簿卡片或相簿 strip 封面區域開始
+- 若第一個位置表現良好，再延伸到相簿詳情 header
+
+- [ ] **步驟 2：準備相簿圖片資料**
+
+更新 album queries，使每個相簿回傳一小組候選圖片 URL，而不只是單一封面。
+
+控制資料 payload：
+
+- 使用 medium 或 thumbnail URLs
+- 每個相簿限制少量圖片
+
+- [ ] **步驟 3：建立輕量輪播元件**
+
+在適合的地方重用 hero 的互動風格：
+
+- 定時輪替
+- 細緻 crossfade
+- 只有一張圖時 fallback 到單圖
+
+避免新增 repo 目前未使用的沉重動畫 dependency。
+
+- [ ] **步驟 4：整合時避免 layout regression**
+
+確保：
+
+- desktop 與 mobile layout 仍可運作
+- 圖片高度變化不會造成 layout shift
+- 相簿頁仍保持快速
+
+- [ ] **步驟 5：驗證視覺一致性**
+
+手動檢查：
+
+- 輪播感覺與 hero 有關聯，但不會尷尬地重複
+- 照片較少的相簿仍可良好渲染
+- 相簿缺少足夠素材時不會出現破圖
+
+執行：
+
+```powershell
+npm run build
+```
+
+預期：
+
+- build 成功
+- slideshow component 不破壞 SSR/hydration 邊界
 
 ---
 
-## Notes For Execution
+## 建議里程碑
 
-- Keep repository parity in mind: this codebase still supports both Prisma-backed and manifest-backed paths in some repositories.
-- Do not overbuild multi-admin reply identity for v1.
-- Prefer shipping single-photo album reassignment first if bulk move starts to threaten scope.
-- If upload batching needs architectural change beyond current server actions, split that work behind a milestone checkpoint rather than forcing it into one large patch.
+### 里程碑 1：上傳安全基線
+
+- 任務 1：強制要求上傳目的地
+- 任務 2：新增上傳後相簿重新指派
+
+發布價值：
+
+- 避免常見錯誤
+- 給管理員立即復原路徑
+
+### 里程碑 2：上傳可靠性
+
+- 任務 3：強化大批次上傳行為
+
+發布價值：
+
+- 降低 crash 與必須重新整理才能恢復的失敗
+
+### 里程碑 3：管理後台產品化
+
+- 任務 4：將管理後台產品化
+- 任務 5：為訪客留言新增站主回覆
+
+發布價值：
+
+- 讓後台感覺接近 production-ready
+- 啟用站主與訪客互動
+
+### 里程碑 4：視覺打磨
+
+- 任務 6：新增相簿封面隨機輪播
+
+發布價值：
+
+- 改善相簿預覽品質與網站識別感
+
+---
+
+## 驗證清單
+
+- [ ] 上傳表單在 client 與 server 路徑都會阻止缺少目的地
+- [ ] 管理員可將錯誤上傳的照片移到另一個相簿
+- [ ] 超大上傳批次會失敗且不會卡住頁面
+- [ ] 管理後台文案與 layout 感覺是產品導向
+- [ ] 管理員可用單一明確站主顯示名稱回覆訪客留言
+- [ ] 公開照片頁正確顯示站主回覆
+- [ ] 相簿封面輪播使用相簿自己的圖片並能 graceful degrade
+- [ ] 每個里程碑後 `npm run build` 成功
+- [ ] 宣稱完成前 `.session/verify.ps1` 通過
+
+---
+
+## 執行注意事項
+
+- 記得保持 repository parity：此 codebase 的部分 repositories 仍同時支援 Prisma-backed 與 manifest-backed 路徑。
+- v1 不要過度建置多管理員回覆身份。
+- 若批次移動開始威脅 scope，偏好先交付單張照片相簿重新指派。
+- 若 upload batching 需要超出目前 server actions 的架構變更，請把該工作拆到里程碑 checkpoint 後，而不是硬塞進一個巨大 patch。
