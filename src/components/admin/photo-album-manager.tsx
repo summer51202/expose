@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 
 import {
   movePhotoToAlbumAction,
-  type PhotoAlbumMoveState,
+  type PhotoMoveState,
 } from "@/app/admin/photo-actions";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +12,7 @@ import {
   getPhotoAlbumChangeError,
 } from "@/lib/photos/photo-album-change";
 
-const initialState: PhotoAlbumMoveState = {};
+const initialState: PhotoMoveState = {};
 
 type PhotoAlbumManagerProps = {
   photos: Array<{
