@@ -1,151 +1,113 @@
 ﻿import Link from "next/link";
 
-import { logoutAction } from "@/app/admin/login/actions";
-import { AlbumEditorForm } from "@/components/admin/album-editor-form";
-import { AlbumForm } from "@/components/admin/album-form";
-import { CommentModerationList } from "@/components/admin/comment-moderation-list";
-import { LikeSummaryList } from "@/components/admin/like-summary-list";
-import { PhotoAlbumManager } from "@/components/admin/photo-album-manager";
-import { UploadForm } from "@/components/admin/upload-form";
-import { Button } from "@/components/ui/button";
+import { AdminShell } from "@/components/admin/admin-shell";
 import { Panel } from "@/components/ui/panel";
-import { siteConfig } from "@/config/site";
-import { getAlbums, getAlbumOptions } from "@/lib/albums/queries";
+import { getAlbums } from "@/lib/albums/queries";
 import { requireAdminSession } from "@/lib/auth/session";
 import { getAdminComments } from "@/lib/comments/queries";
 import { getAdminLikeSummaries } from "@/lib/likes/queries";
-import { getRecentUploads } from "@/lib/photos/queries";
+import { getPhotoRepository } from "@/lib/photos/repository";
+
+const workflowCards = [
+  {
+    href: "/admin/upload",
+    title: "上傳照片",
+    description: "新增照片到指定相簿。",
+  },
+  {
+    href: "/admin/photos",
+    title: "管理照片",
+    description: "查看全部照片並修正相簿歸類。",
+  },
+  {
+    href: "/admin/albums",
+    title: "管理相簿",
+    description: "建立相簿，編輯名稱與描述。",
+  },
+  {
+    href: "/admin/comments",
+    title: "留言管理",
+    description: "檢查並刪除不適合公開的留言。",
+  },
+  {
+    href: "/admin/likes",
+    title: "按讚統計",
+    description: "查看熱門照片與重置按讚資料。",
+  },
+];
 
 export default async function AdminPage() {
   const session = await requireAdminSession();
-  const [recentUploads, albums, albumOptions, adminComments, likeSummary] = await Promise.all([
-    getRecentUploads(12),
+  const [photos, albums, comments, likeSummary] = await Promise.all([
+    getPhotoRepository().listUploadedPhotos(),
     getAlbums(),
-    getAlbumOptions(),
     getAdminComments(),
     getAdminLikeSummaries(),
   ]);
+  const recentUploads = photos.slice(0, 5);
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 py-8 sm:px-8 lg:px-12">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <p className="text-sm tracking-[0.2em] text-stone-500 uppercase">管理後台</p>
-          <h1 className="mt-2 text-3xl font-semibold text-stone-900">你好，{session.username}</h1>
+    <AdminShell username={session.username}>
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Panel>
+          <p className="text-sm text-stone-500">照片</p>
+          <p className="mt-2 text-3xl font-semibold text-stone-900">{photos.length}</p>
+        </Panel>
+        <Panel>
+          <p className="text-sm text-stone-500">相簿</p>
+          <p className="mt-2 text-3xl font-semibold text-stone-900">{albums.length}</p>
+        </Panel>
+        <Panel>
+          <p className="text-sm text-stone-500">留言</p>
+          <p className="mt-2 text-3xl font-semibold text-stone-900">{comments.length}</p>
+        </Panel>
+        <Panel>
+          <p className="text-sm text-stone-500">被按讚照片</p>
+          <p className="mt-2 text-3xl font-semibold text-stone-900">
+            {likeSummary.totalPhotosWithLikes}
+          </p>
+        </Panel>
+      </section>
+
+      <section className="mt-6">
+        <h2 className="text-xl font-semibold text-stone-900">主要工作</h2>
+        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {workflowCards.map((card) => (
+            <Link key={card.href} href={card.href} className="block">
+              <Panel className="h-full transition hover:border-stone-400">
+                <h3 className="text-xl font-semibold text-stone-900">{card.title}</h3>
+                <p className="mt-3 text-sm leading-6 text-stone-600">{card.description}</p>
+              </Panel>
+            </Link>
+          ))}
         </div>
-        <form action={logoutAction}>
-          <Button variant="secondary" type="submit">
-            登出
-          </Button>
-        </form>
-      </div>
+      </section>
 
-      <div className="mt-8 grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+      <section className="mt-6">
         <Panel>
-          <p className="text-sm tracking-[0.2em] text-stone-500 uppercase">照片上傳</p>
-          <h2 className="mt-3 text-2xl font-semibold text-stone-900">上傳照片並指定目的相簿</h2>
-          <p className="mt-3 leading-7 text-stone-700">
-            先選擇正確相簿，再上傳照片。系統會自動產生適合前台使用的多尺寸版本。
-          </p>
-          <div className="mt-6">
-            <UploadForm albums={albumOptions} />
-          </div>
-        </Panel>
-
-        <Panel>
-          <p className="text-sm tracking-[0.2em] text-stone-500 uppercase">相簿設定</p>
-          <h2 className="mt-3 text-2xl font-semibold text-stone-900">建立與整理相簿</h2>
-          <p className="mt-3 leading-7 text-stone-700">
-            建立主題相簿，並直接修改既有相簿名稱與描述，保持前台分類清楚一致。
-          </p>
-          <div className="mt-6">
-            <AlbumForm />
-          </div>
-        </Panel>
-      </div>
-
-      <div className="mt-4 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-        <Panel>
-          <p className="text-sm tracking-[0.2em] text-stone-500 uppercase">照片搬移</p>
-          <h2 className="mt-3 text-2xl font-semibold text-stone-900">修正照片所在相簿</h2>
-          <p className="mt-3 leading-7 text-stone-700">
-            若照片上傳到錯誤相簿，可以直接在這裡改到正確位置，不需要重新上傳。
-          </p>
-          <div className="mt-6">
-            <PhotoAlbumManager photos={recentUploads} albums={albumOptions} />
-          </div>
-        </Panel>
-
-        <Panel>
-          <h2 className="text-xl font-semibold text-stone-900">目前相簿</h2>
-          <div className="mt-4 grid gap-3 text-stone-700">
-            {albums.length > 0 ? (
-              albums.map((album) => (
-                <div
-                  key={album.id}
-                  className="rounded-2xl border border-line bg-white/80 px-4 py-4"
+          <h2 className="text-xl font-semibold text-stone-900">最近上傳</h2>
+          <div className="mt-4 grid gap-3">
+            {recentUploads.length > 0 ? (
+              recentUploads.map((photo) => (
+                <Link
+                  key={photo.id}
+                  href={`/photos/${photo.source}/${photo.id}`}
+                  className="rounded-lg border border-line bg-white/80 px-4 py-3 text-sm text-stone-700 transition hover:border-stone-400"
                 >
-                  <div className="mb-4 flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-stone-900">{album.name}</p>
-                      <p className="mt-1 text-sm text-stone-600">{album.photoCount} 張照片</p>
-                    </div>
-                    <Link
-                      href={`/albums/${encodeURIComponent(album.slug)}`}
-                      className="text-sm text-stone-700 underline-offset-4 hover:underline"
-                    >
-                      查看相簿
-                    </Link>
-                  </div>
-                  <AlbumEditorForm album={album} />
-                </div>
+                  <span className="font-medium text-stone-900">{photo.title}</span>
+                  <span className="ml-2 text-stone-500">
+                    {photo.albumName ?? "未分類"} · {photo.width} x {photo.height}
+                  </span>
+                </Link>
               ))
             ) : (
-              <p className="rounded-2xl border border-line bg-white/80 px-4 py-3 text-sm">
-                目前還沒有相簿。你可以先建立幾本主題相簿，再上傳照片進去。
+              <p className="rounded-lg border border-line bg-white/80 px-4 py-3 text-sm text-stone-600">
+                目前還沒有上傳的照片。
               </p>
             )}
           </div>
         </Panel>
-      </div>
-
-      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <Panel>
-          <h2 className="text-xl font-semibold text-stone-900">目前入口</h2>
-          <div className="mt-3 grid gap-2 text-stone-700">
-            <Link className="underline-offset-4 hover:underline" href="/">
-              前往首頁
-            </Link>
-            <Link className="underline-offset-4 hover:underline" href={siteConfig.loginPath}>
-              回登入頁
-            </Link>
-          </div>
-        </Panel>
-      </div>
-
-      <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        <Panel>
-          <p className="text-sm tracking-[0.2em] text-stone-500 uppercase">留言管理</p>
-          <h2 className="mt-3 text-2xl font-semibold text-stone-900">管理訪客留言</h2>
-          <p className="mt-3 leading-7 text-stone-700">
-            這裡會列出最新留言。看到不適合公開的內容時，可以直接刪除。
-          </p>
-          <div className="mt-6">
-            <CommentModerationList comments={adminComments} />
-          </div>
-        </Panel>
-
-        <Panel>
-          <p className="text-sm tracking-[0.2em] text-stone-500 uppercase">按讚管理</p>
-          <h2 className="mt-3 text-2xl font-semibold text-stone-900">查看按讚統計</h2>
-          <p className="mt-3 leading-7 text-stone-700">
-            這裡會顯示目前哪些照片最受歡迎。若你想重置某張照片的按讚，也可以直接在下方清空。
-          </p>
-          <div className="mt-6">
-            <LikeSummaryList summary={likeSummary} />
-          </div>
-        </Panel>
-      </div>
-    </main>
+      </section>
+    </AdminShell>
   );
 }
