@@ -2,7 +2,7 @@
 import { normalizeAlbumSlug } from "@/lib/albums/slug";
 import { getPhotoRepository } from "@/lib/photos/repository";
 import { samplePhotos } from "@/lib/photos/sample-photos";
-import type { GalleryPhoto } from "@/types/photo";
+import type { GalleryPhoto, PhotoRecord } from "@/types/photo";
 
 function byCreatedAtDesc(a: GalleryPhoto, b: GalleryPhoto) {
   return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -38,6 +38,11 @@ export async function getGalleryPhotos(): Promise<GalleryPhoto[]> {
 export async function getRecentUploads(limit = 6): Promise<GalleryPhoto[]> {
   const uploadedPhotos = await getPhotoRepository().listUploadedPhotos();
   return uploadedPhotos.slice(0, limit);
+}
+
+export async function getAdminUploadedPhotos(): Promise<PhotoRecord[]> {
+  const uploadedPhotos = await getPhotoRepository().listUploadedPhotos();
+  return uploadedPhotos.sort(byCreatedAtDesc);
 }
 
 export async function getPhotoBySourceAndId(source: string, id: number) {

@@ -20,6 +20,7 @@ export async function deleteCommentAction(
   await requireAdminSession();
   await getCommentRepository().deleteComment(commentId, photoSource);
   revalidatePath("/admin");
+  revalidatePath("/admin/comments");
 }
 
 export async function replyToCommentAction(
@@ -64,5 +65,6 @@ export async function clearPhotoLikesAction(
   await requireAdminSession();
   await getLikeRepository().clearLikesByPhoto(photoSource, photoId);
   revalidatePath("/admin");
+  revalidatePath("/admin/likes");
   revalidatePath(`/photos/${photoSource}/${photoId}`);
 }

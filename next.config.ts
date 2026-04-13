@@ -49,7 +49,7 @@ const nextConfig: NextConfig = {
     process.env.NEXT_DIST_DIR || (process.env.NODE_ENV === "development" ? ".next" : ".next-build-output"),
   experimental: {
     serverActions: {
-      bodySizeLimit: "50mb",
+      bodySizeLimit: "220mb",
     },
   },
   images: {

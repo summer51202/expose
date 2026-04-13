@@ -12,10 +12,11 @@ import {
 export type UploadFormState = {
   error?: string;
   success?: string;
+  resetKey?: string;
 };
 
 function buildUploadSuccessMessage(result: UploadSummary) {
-  return `已完成上傳，共新增 ${result.uploadedCount} 張照片。`;
+  return `上傳完成，已新增 ${result.uploadedCount} 張照片。已選照片清單已清空，可以繼續選下一批。`;
 }
 
 export async function uploadPhotosAction(
@@ -37,9 +38,11 @@ export async function uploadPhotosAction(
 
     revalidatePath("/");
     revalidatePath("/admin");
+    revalidatePath("/admin/upload");
 
     return {
       success: buildUploadSuccessMessage(result),
+      resetKey: `${Date.now()}`,
     };
   } catch (error) {
     return {

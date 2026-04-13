@@ -5,8 +5,8 @@
   "image/avif",
 ]);
 export const UPLOAD_MAX_FILE_SIZE = 20 * 1024 * 1024;
-export const UPLOAD_MAX_FILES = 12;
-export const UPLOAD_MAX_TOTAL_BYTES = 40 * 1024 * 1024;
+export const UPLOAD_MAX_FILES = 100;
+export const UPLOAD_MAX_TOTAL_BYTES = 200 * 1024 * 1024;
 
 type UploadBatchFile = {
   name: string;
