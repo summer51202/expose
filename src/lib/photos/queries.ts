@@ -40,6 +40,11 @@ export async function getRecentUploads(limit = 6): Promise<GalleryPhoto[]> {
   return uploadedPhotos.slice(0, limit);
 }
 
+export async function getAdminUploadedPhotos(): Promise<GalleryPhoto[]> {
+  const uploadedPhotos = await getPhotoRepository().listUploadedPhotos();
+  return uploadedPhotos.sort(byCreatedAtDesc);
+}
+
 export async function getPhotoBySourceAndId(source: string, id: number) {
   const photos = await listPhotosForSource(source);
   return photos.find((photo) => photo.id === id) ?? null;
