@@ -93,6 +93,8 @@ export interface PhotoRepository {
   savePhotos(records: PhotoRecord[]): Promise<void>;
   movePhotoToAlbum(photoId: number, assignment: PhotoAlbumAssignment): Promise<void>;
   movePhotosToAlbum(photoIds: number[], assignment: PhotoAlbumAssignment): Promise<void>;
+  deletePhoto(photoId: number): Promise<PhotoRecord | null>;
+  deletePhotos(photoIds: number[]): Promise<PhotoRecord[]>;
   renameAlbumReferences(albumId: number, name: string, slug: string): Promise<void>;
 }
 
@@ -119,6 +121,20 @@ const jsonPhotoRepository: PhotoRepository = {
         targetIds.has(photo.id) ? assignPhotoAlbum(photo, assignment) : photo,
       ),
     );
+  },
+  async deletePhoto(photoId) {
+    const deletedPhotos = await this.deletePhotos([photoId]);
+
+    return deletedPhotos[0] ?? null;
+  },
+  async deletePhotos(photoIds) {
+    const targetIds = new Set(photoIds);
+    const photos = await listManifestPhotos();
+    const deletedPhotos = photos.filter((photo) => targetIds.has(photo.id));
+
+    await replaceManifestPhotos(photos.filter((photo) => !targetIds.has(photo.id)));
+
+    return deletedPhotos;
   },
   async renameAlbumReferences(albumId, name, slug) {
     const photos = await listManifestPhotos();
@@ -188,6 +204,44 @@ const prismaPhotoRepository: PhotoRepository = {
         albumId: toPrismaBigInt(assignment.albumId),
       },
     });
+  },
+  async deletePhoto(photoId) {
+    const deletedPhotos = await this.deletePhotos([photoId]);
+
+    return deletedPhotos[0] ?? null;
+  },
+  async deletePhotos(photoIds) {
+    if (photoIds.length === 0) {
+      return [];
+    }
+
+    const photos = await prisma.photo.findMany({
+      where: {
+        id: {
+          in: photoIds.map(toPrismaBigInt),
+        },
+      },
+      include: {
+        album: {
+          select: {
+            name: true,
+            slug: true,
+          },
+        },
+      },
+    });
+
+    await prisma.photo.deleteMany({
+      where: {
+        id: {
+          in: photoIds.map(toPrismaBigInt),
+        },
+      },
+    });
+
+    return photos.map((photo) =>
+      mapPhotoRecordFromPrisma(photo as PrismaPhotoWithAlbum),
+    );
   },
   async renameAlbumReferences() {
     return;
