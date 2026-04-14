@@ -4,10 +4,17 @@ import { revalidatePath } from "next/cache";
 
 import { getAlbumOptions } from "@/lib/albums/queries";
 import { requireAdminSession } from "@/lib/auth/session";
+import { getPhotoDeleteError } from "@/lib/photos/photo-delete";
 import { getPhotoRepository, type PhotoAlbumAssignment } from "@/lib/photos/repository";
 import type { PhotoRecord } from "@/types/photo";
 
 export type PhotoMoveState = {
+  error?: string;
+  success?: string;
+  resetKey?: string;
+};
+
+export type PhotoDeleteState = {
   error?: string;
   success?: string;
   resetKey?: string;
@@ -65,6 +72,21 @@ function revalidatePhotoMovePaths(photos: PhotoRecord[], assignment: PhotoAlbumA
   }
 }
 
+function revalidateDeletedPhotoPaths(photos: PhotoRecord[]) {
+  revalidatePath("/");
+  revalidatePath("/admin");
+  revalidatePath("/admin/photos");
+  revalidatePath("/admin/albums");
+
+  for (const photo of photos) {
+    if (photo.albumSlug) {
+      revalidatePath(`/albums/${photo.albumSlug}`);
+    }
+
+    revalidatePath(`/photos/uploaded/${photo.id}`);
+  }
+}
+
 async function resolveMoveInput(photoIds: number[], albumId: number | null) {
   if (photoIds.length === 0) {
     return {
@@ -99,6 +121,29 @@ async function resolveMoveInput(photoIds: number[], albumId: number | null) {
   return {
     assignment,
     movingPhotos,
+  };
+}
+
+async function resolveDeleteInput(photoIds: number[]) {
+  const validationError = getPhotoDeleteError(photoIds);
+
+  if (validationError) {
+    return {
+      error: "請先選擇要刪除的照片。",
+    };
+  }
+
+  const photos = await getPhotoRepository().listUploadedPhotos();
+  const deletingPhotos = getMovingPhotos(photos, photoIds);
+
+  if (deletingPhotos.length !== photoIds.length) {
+    return {
+      error: "有照片不存在，請重新整理後再試一次。",
+    };
+  }
+
+  return {
+    deletingPhotos,
   };
 }
 
@@ -160,6 +205,65 @@ export async function moveSelectedPhotosToAlbumAction(
   } catch {
     return {
       error: "批次移動照片失敗，請稍後再試一次。",
+    };
+  }
+}
+
+export async function deletePhotoAction(
+  photoId: number,
+  _prevState: PhotoDeleteState,
+): Promise<PhotoDeleteState> {
+  await requireAdminSession();
+
+  const resolved = await resolveDeleteInput([photoId]);
+
+  if ("error" in resolved) {
+    return {
+      error: resolved.error,
+    };
+  }
+
+  try {
+    await getPhotoRepository().deletePhoto(photoId);
+    revalidateDeletedPhotoPaths(resolved.deletingPhotos);
+
+    return {
+      success: "照片已刪除。",
+      resetKey: `${Date.now()}`,
+    };
+  } catch {
+    return {
+      error: "刪除照片失敗，請稍後再試一次。",
+    };
+  }
+}
+
+export async function deleteSelectedPhotosAction(
+  _prevState: PhotoDeleteState,
+  formData: FormData,
+): Promise<PhotoDeleteState> {
+  await requireAdminSession();
+
+  const photoIds = parsePhotoIds(formData);
+  const resolved = await resolveDeleteInput(photoIds);
+
+  if ("error" in resolved) {
+    return {
+      error: resolved.error,
+    };
+  }
+
+  try {
+    await getPhotoRepository().deletePhotos(photoIds);
+    revalidateDeletedPhotoPaths(resolved.deletingPhotos);
+
+    return {
+      success: `已刪除 ${resolved.deletingPhotos.length} 張照片。`,
+      resetKey: `${Date.now()}`,
+    };
+  } catch {
+    return {
+      error: "批次刪除照片失敗，請稍後再試一次。",
     };
   }
 }
