@@ -8,9 +8,13 @@ type PhotoCardProps = {
 };
 
 export function PhotoCard({ photo }: PhotoCardProps) {
+  const detailHref = photo.albumSlug
+    ? `/photos/${photo.source}/${photo.id}?returnAlbum=${encodeURIComponent(photo.albumSlug)}&returnView=grid&returnPhoto=${photo.id}`
+    : `/photos/${photo.source}/${photo.id}`;
+
   return (
-    <article className="mb-4 break-inside-avoid">
-      <Link href={`/photos/${photo.source}/${photo.id}`} className="group block">
+    <article id={`photo-${photo.id}`} className="mb-4 break-inside-avoid scroll-mt-24">
+      <Link href={detailHref} className="group block">
         <div className="relative overflow-hidden rounded-[1.25rem]">
           <PhotoStage photo={photo} />
 

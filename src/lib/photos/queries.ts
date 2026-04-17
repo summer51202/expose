@@ -83,3 +83,23 @@ export async function getPhotosByAlbumSlug(slug: string) {
 
   return photos.filter((photo) => photo.albumId === album.id);
 }
+
+export async function getAlbumPageData(slug: string) {
+  const normalizedSlug = normalizeAlbumSlug(slug);
+  const [albums, photos] = await Promise.all([
+    getAlbums(),
+    getPhotoRepository().listUploadedPhotos(),
+  ]);
+  const album = albums.find(
+    (item) => normalizeAlbumSlug(item.slug) === normalizedSlug,
+  );
+
+  if (!album) {
+    return null;
+  }
+
+  return {
+    album,
+    photos: photos.filter((photo) => photo.albumId === album.id),
+  };
+}
