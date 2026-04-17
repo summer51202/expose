@@ -31,6 +31,7 @@ function PhotoBackground({ photo, priority }: { photo: PublicPhoto; priority?: b
       alt={photo.title}
       fill
       priority={priority}
+      draggable={false}
       className="object-cover"
       sizes="100vw"
       placeholder={photo.blurDataUrl ? "blur" : "empty"}

@@ -72,6 +72,7 @@ export function GalleryFilmStrip({
                 alt=""
                 fill
                 sizes="72px"
+                draggable={false}
                 className="object-cover"
                 placeholder={photo.blurDataUrl ? "blur" : "empty"}
                 blurDataURL={photo.blurDataUrl}

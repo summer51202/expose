@@ -24,7 +24,10 @@ export function GalleryImageStage({
   const sampleGradient = sampleGradients[photo.id % sampleGradients.length];
 
   return (
-    <div className="relative h-full w-full">
+    <div
+      className="relative h-full w-full"
+      onContextMenu={(event) => event.preventDefault()}
+    >
       {isSample ? (
         <div className="flex h-full w-full items-center justify-center bg-black">
           <div
@@ -38,6 +41,7 @@ export function GalleryImageStage({
           alt={photo.title}
           fill
           priority={priority}
+          draggable={false}
           className="object-contain"
           sizes="100vw"
           placeholder={photo.blurDataUrl ? "blur" : "empty"}
