@@ -30,3 +30,8 @@ export async function updateManifestAlbum(
 
   await writeAlbumManifest(next);
 }
+
+export async function deleteManifestAlbum(albumId: number) {
+  const current = await readAlbumManifest();
+  await writeAlbumManifest(current.filter((record) => record.id !== albumId));
+}

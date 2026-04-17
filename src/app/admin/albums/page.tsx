@@ -5,11 +5,15 @@ import { AlbumForm } from "@/components/admin/album-form";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { Panel } from "@/components/ui/panel";
 import { getAlbums } from "@/lib/albums/queries";
+import { getPhotoRepository } from "@/lib/photos/repository";
 import { requireAdminSession } from "@/lib/auth/session";
 
 export default async function AdminAlbumsPage() {
   const session = await requireAdminSession();
-  const albums = await getAlbums();
+  const [albums, allPhotos] = await Promise.all([
+    getAlbums(),
+    getPhotoRepository().listUploadedPhotos(),
+  ]);
 
   return (
     <AdminShell username={session.username}>
@@ -45,7 +49,12 @@ export default async function AdminAlbumsPage() {
                       查看相簿
                     </Link>
                   </div>
-                  <AlbumEditorForm album={album} />
+                  <AlbumEditorForm
+                    album={album}
+                    photos={allPhotos
+                      .filter((p) => p.albumId === album.id)
+                      .map((p) => ({ id: p.id, title: p.title, thumbnailUrl: p.thumbnailUrl }))}
+                  />
                 </div>
               ))
             ) : (

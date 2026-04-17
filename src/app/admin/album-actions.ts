@@ -68,6 +68,11 @@ export async function updateAlbumAction(
 
   const name = String(formData.get("name") || "").trim();
   const description = String(formData.get("description") || "").trim();
+  const coverPhotoIdRaw = formData.get("coverPhotoId");
+  const coverPhotoId =
+    coverPhotoIdRaw !== null && String(coverPhotoIdRaw).trim() !== ""
+      ? Number(coverPhotoIdRaw)
+      : null;
 
   if (!name) {
     return {
@@ -97,6 +102,7 @@ export async function updateAlbumAction(
     name,
     description,
     slug: nextSlug,
+    coverPhotoId: coverPhotoId !== null ? coverPhotoId : record.coverPhotoId,
   }));
 
   await photoRepository.renameAlbumReferences(albumId, name, nextSlug);
@@ -110,4 +116,29 @@ export async function updateAlbumAction(
   return {
     success: `相簿已更新為「${name}」。`,
   };
+}
+
+export async function deleteAlbumAction(
+  albumId: number,
+): Promise<AlbumFormState> {
+  await requireAdminSession();
+
+  const albumRepository = getAlbumRepository();
+  const photoRepository = getPhotoRepository();
+  const albums = await albumRepository.listAlbums();
+  const targetAlbum = albums.find((album) => album.id === albumId);
+
+  if (!targetAlbum) {
+    return { error: "找不到這本相簿，請重新整理後再試一次。" };
+  }
+
+  await photoRepository.clearAlbumReferences(albumId);
+  await albumRepository.deleteAlbum(albumId);
+
+  revalidatePath("/");
+  revalidatePath("/admin");
+  revalidatePath("/admin/albums");
+  revalidatePath(`/albums/${targetAlbum.slug}`);
+
+  return { success: `相簿「${targetAlbum.name}」已刪除。` };
 }
