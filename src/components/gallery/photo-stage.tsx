@@ -1,11 +1,12 @@
 import Image from "next/image";
 
 import { cn } from "@/lib/utils";
-import type { GalleryPhoto } from "@/types/photo";
+import type { PublicPhoto } from "@/types/photo";
 
 type PhotoStageProps = {
-  photo: GalleryPhoto;
+  photo: PublicPhoto;
   priority?: boolean;
+  disableContextMenu?: boolean;
 };
 
 const sampleGradients = [
@@ -17,12 +18,20 @@ const sampleGradients = [
   "from-rose-950 via-fuchsia-700 to-pink-300",
 ];
 
-export function PhotoStage({ photo, priority = false }: PhotoStageProps) {
+export function PhotoStage({
+  photo,
+  priority = false,
+  disableContextMenu = false,
+}: PhotoStageProps) {
   const isSample = photo.source === "sample";
   const sampleGradient = sampleGradients[photo.id % sampleGradients.length];
 
   return (
-    <div className="relative w-full overflow-hidden rounded-[1.25rem]" style={{ aspectRatio: `${photo.width} / ${photo.height}` }}>
+    <div
+      className="relative w-full overflow-hidden rounded-[1.25rem]"
+      style={{ aspectRatio: `${photo.width} / ${photo.height}` }}
+      onContextMenu={disableContextMenu ? (event) => event.preventDefault() : undefined}
+    >
       {isSample ? (
         <div className={cn("absolute inset-0 bg-gradient-to-br", sampleGradient)}>
           <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(17,12,8,0.68))]" />
@@ -33,6 +42,7 @@ export function PhotoStage({ photo, priority = false }: PhotoStageProps) {
           alt={photo.title}
           fill
           priority={priority}
+          draggable={false}
           className="object-cover"
           sizes="(max-width: 640px) 100vw, (max-width: 1280px) 70vw, 1200px"
           placeholder={photo.blurDataUrl ? "blur" : "empty"}
