@@ -444,5 +444,14 @@ The admin backend should show traffic and view-count statistics.
 - Add admin dashboard cards for total views, unique visitors, top albums, top photos, and recent trend.
 - Separate bot filtering and admin self-traffic rules from the first implementation decision.
 
+### First-release implementation note
+The first implementation is scoped to whole-site daily aggregate analytics:
+
+- `/admin/analytics` shows today, week, month, year, and latest 30 daily totals.
+- Metrics include page views and distinct visitors.
+- Admin traffic is excluded.
+- Daily aggregate storage is intentional; future detailed analytics requires raw event storage.
+- The storage model keeps `path` and `pageType`, but top-page/top-photo reporting will need query and UI upgrades because the first page only reports whole-site totals.
+
 ### Priority
 `Medium-High`
