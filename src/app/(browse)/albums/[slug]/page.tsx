@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { AlbumPhotoExperience } from "@/components/gallery/album-photo-experience";
 import { Panel } from "@/components/ui/panel";
+import { trackPublicPageView } from "@/lib/analytics/server-tracker";
 import { getAlbumPageData } from "@/lib/photos/queries";
 
 type AlbumPageProps = {
@@ -20,6 +21,10 @@ export default async function AlbumPage({ params }: AlbumPageProps) {
   }
 
   const { album, photos } = pageData;
+  await trackPublicPageView({
+    pageType: "album",
+    path: `/albums/${album.slug}`,
+  });
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-5 pb-6 pt-20 sm:px-8 lg:px-12">

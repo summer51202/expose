@@ -6,6 +6,7 @@ import { CommentList } from "@/components/comments/comment-list";
 import { PhotoStage } from "@/components/gallery/photo-stage";
 import { LikeButton } from "@/components/likes/like-button";
 import { Panel } from "@/components/ui/panel";
+import { trackPublicPageView } from "@/lib/analytics/server-tracker";
 import { getCommentsByPhoto } from "@/lib/comments/queries";
 import { getLikeSummaryByPhoto } from "@/lib/likes/queries";
 import { resolveAlbumViewMode, resolvePhotoIdParam } from "@/lib/gallery/album-gallery-url";
@@ -35,6 +36,11 @@ export default async function PhotoViewerPage({ params, searchParams }: PhotoVie
   if (!photo) {
     notFound();
   }
+
+  await trackPublicPageView({
+    pageType: "photo",
+    path: `/photos/${photo.source}/${photo.id}`,
+  });
 
   const [neighbors, exifFields, comments, likeSummary] = await Promise.all([
     getPhotoNeighbors(photo.source, photo.id),
