@@ -4,10 +4,10 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
-import type { GalleryPhoto } from "@/types/photo";
+import type { PublicPhoto } from "@/types/photo";
 
 type GalleryFilmStripProps = {
-  photos: GalleryPhoto[];
+  photos: PublicPhoto[];
   currentIndex: number;
   onSelect: (index: number) => void;
 };

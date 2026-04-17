@@ -1,9 +1,9 @@
 import { SectionHeading } from "@/components/ui/section-heading";
 import { PhotoGrid } from "@/components/gallery/photo-grid";
-import type { GalleryPhoto } from "@/types/photo";
+import type { PublicPhoto } from "@/types/photo";
 
 type PhotoWallSectionProps = {
-  photos: GalleryPhoto[];
+  photos: PublicPhoto[];
 };
 
 export function PhotoWallSection({ photos }: PhotoWallSectionProps) {

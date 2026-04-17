@@ -1,10 +1,10 @@
 import Image from "next/image";
 
 import { cn } from "@/lib/utils";
-import type { GalleryPhoto } from "@/types/photo";
+import type { PublicPhoto } from "@/types/photo";
 
 type PhotoStageProps = {
-  photo: GalleryPhoto;
+  photo: PublicPhoto;
   priority?: boolean;
 };
 
