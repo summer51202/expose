@@ -70,9 +70,11 @@ export async function updateAlbumAction(
   const description = String(formData.get("description") || "").trim();
   const coverPhotoIdRaw = formData.get("coverPhotoId");
   const coverPhotoId =
-    coverPhotoIdRaw !== null && String(coverPhotoIdRaw).trim() !== ""
-      ? Number(coverPhotoIdRaw)
-      : null;
+    coverPhotoIdRaw === null
+      ? undefined
+      : String(coverPhotoIdRaw).trim() !== ""
+        ? Number(coverPhotoIdRaw)
+        : null;
 
   if (!name) {
     return {
@@ -102,7 +104,7 @@ export async function updateAlbumAction(
     name,
     description,
     slug: nextSlug,
-    coverPhotoId: coverPhotoId !== null ? coverPhotoId : record.coverPhotoId,
+    coverPhotoId: coverPhotoId !== undefined ? coverPhotoId : record.coverPhotoId,
   }));
 
   await photoRepository.renameAlbumReferences(albumId, name, nextSlug);
