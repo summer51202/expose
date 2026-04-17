@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { PageViewBeacon } from "@/components/analytics/page-view-beacon";
 import { CommentForm } from "@/components/comments/comment-form";
 import { CommentList } from "@/components/comments/comment-list";
 import { PhotoStage } from "@/components/gallery/photo-stage";
 import { LikeButton } from "@/components/likes/like-button";
 import { Panel } from "@/components/ui/panel";
-import { trackPublicPageView } from "@/lib/analytics/server-tracker";
 import { getCommentsByPhoto } from "@/lib/comments/queries";
 import { getLikeSummaryByPhoto } from "@/lib/likes/queries";
 import { resolveAlbumViewMode, resolvePhotoIdParam } from "@/lib/gallery/album-gallery-url";
@@ -37,11 +37,6 @@ export default async function PhotoViewerPage({ params, searchParams }: PhotoVie
     notFound();
   }
 
-  await trackPublicPageView({
-    pageType: "photo",
-    path: `/photos/${photo.source}/${photo.id}`,
-  });
-
   const [neighbors, exifFields, comments, likeSummary] = await Promise.all([
     getPhotoNeighbors(photo.source, photo.id),
     Promise.resolve(getExifDisplayFields(photo.exifData ?? null)),
@@ -57,6 +52,7 @@ export default async function PhotoViewerPage({ params, searchParams }: PhotoVie
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-5 pb-12 pt-20 sm:px-8 lg:px-12">
+      <PageViewBeacon pageType="photo" path={`/photos/${photo.source}/${photo.id}`} />
 
       {/* Top navigation bar */}
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
