@@ -3,17 +3,16 @@ import { notFound } from "next/navigation";
 
 import { CommentForm } from "@/components/comments/comment-form";
 import { CommentList } from "@/components/comments/comment-list";
-import { SlideshowViewer } from "@/components/gallery/slideshow-viewer";
 import { PhotoStage } from "@/components/gallery/photo-stage";
 import { LikeButton } from "@/components/likes/like-button";
 import { Panel } from "@/components/ui/panel";
 import { getCommentsByPhoto } from "@/lib/comments/queries";
 import { getLikeSummaryByPhoto } from "@/lib/likes/queries";
+import { resolveAlbumViewMode, resolvePhotoIdParam } from "@/lib/gallery/album-gallery-url";
 import { getExifDisplayFields } from "@/lib/photos/exif";
 import {
   getPhotoBySourceAndId,
   getPhotoNeighbors,
-  getPhotosForSource,
 } from "@/lib/photos/queries";
 
 type PhotoViewerPageProps = {
@@ -21,23 +20,34 @@ type PhotoViewerPageProps = {
     source: string;
     id: string;
   }>;
+  searchParams?: Promise<{
+    returnAlbum?: string;
+    returnView?: string;
+    returnPhoto?: string;
+  }>;
 };
 
-export default async function PhotoViewerPage({ params }: PhotoViewerPageProps) {
+export default async function PhotoViewerPage({ params, searchParams }: PhotoViewerPageProps) {
   const { source, id } = await params;
+  const returnParams = searchParams ? await searchParams : {};
   const photo = await getPhotoBySourceAndId(source, Number(id));
 
   if (!photo) {
     notFound();
   }
 
-  const [neighbors, exifFields, slideshowPhotos, comments, likeSummary] = await Promise.all([
+  const [neighbors, exifFields, comments, likeSummary] = await Promise.all([
     getPhotoNeighbors(photo.source, photo.id),
     Promise.resolve(getExifDisplayFields(photo.exifData ?? null)),
-    getPhotosForSource(photo.source),
     getCommentsByPhoto(photo.source, photo.id),
     getLikeSummaryByPhoto(photo.source, photo.id),
   ]);
+  const returnAlbum = returnParams.returnAlbum ?? photo.albumSlug;
+  const returnView = resolveAlbumViewMode(returnParams.returnView ?? null);
+  const returnPhoto = resolvePhotoIdParam(returnParams.returnPhoto ?? null) ?? photo.id;
+  const backHref = returnAlbum
+    ? `/albums/${encodeURIComponent(returnAlbum)}?view=${returnView}&photo=${returnPhoto}`
+    : "/";
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-5 pb-12 pt-20 sm:px-8 lg:px-12">
@@ -45,7 +55,7 @@ export default async function PhotoViewerPage({ params }: PhotoViewerPageProps) 
       {/* Top navigation bar */}
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <Link
-          href="/"
+          href={backHref}
           className="text-sm text-white/50 transition hover:text-white/90"
         >
           ← Back
@@ -78,7 +88,6 @@ export default async function PhotoViewerPage({ params }: PhotoViewerPageProps) 
               →
             </span>
           )}
-          <SlideshowViewer photos={slideshowPhotos} initialPhotoId={photo.id} />
         </div>
       </div>
 

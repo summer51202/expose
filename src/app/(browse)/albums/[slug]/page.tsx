@@ -1,10 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { PhotoGrid } from "@/components/gallery/photo-grid";
+import { AlbumPhotoExperience } from "@/components/gallery/album-photo-experience";
 import { Panel } from "@/components/ui/panel";
-import { getAlbumBySlug } from "@/lib/albums/queries";
-import { getPhotosByAlbumSlug } from "@/lib/photos/queries";
+import { getAlbumPageData } from "@/lib/photos/queries";
 
 type AlbumPageProps = {
   params: Promise<{
@@ -14,13 +13,13 @@ type AlbumPageProps = {
 
 export default async function AlbumPage({ params }: AlbumPageProps) {
   const { slug } = await params;
-  const album = await getAlbumBySlug(slug);
+  const pageData = await getAlbumPageData(slug);
 
-  if (!album) {
+  if (!pageData) {
     notFound();
   }
 
-  const photos = await getPhotosByAlbumSlug(slug);
+  const { album, photos } = pageData;
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-5 pb-6 pt-20 sm:px-8 lg:px-12">
@@ -37,17 +36,17 @@ export default async function AlbumPage({ params }: AlbumPageProps) {
         <p className="mt-2 text-sm text-stone-500">{album.photoCount} photos</p>
       </section>
 
-      <section className="mt-8">
-        {photos.length > 0 ? (
-          <PhotoGrid photos={photos} />
-        ) : (
+      {photos.length > 0 ? (
+        <AlbumPhotoExperience albumName={album.name} albumSlug={album.slug} photos={photos} />
+      ) : (
+        <section className="mt-8">
           <Panel>
             <p className="leading-7 text-stone-700">
               No photos in this album yet.
             </p>
           </Panel>
-        )}
-      </section>
+        </section>
+      )}
     </main>
   );
 }

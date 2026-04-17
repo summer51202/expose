@@ -372,3 +372,77 @@ The team wants to confirm whether the admin can currently reply to viewer commen
 
 ### Priority
 `Medium`
+
+---
+
+## Feedback 7: Reduce direct photo download exposure
+
+### User feedback
+The site should make it harder for visitors to directly download photos.
+
+### Current status check
+- Public pages render image URLs in the browser.
+- Uploaded image assets are stored with original, medium, and thumbnail variants.
+- R2 public URLs may expose direct asset access depending on current storage configuration.
+- There is no current download-protection policy, watermarking flow, signed URL flow, or admin setting for public image exposure.
+
+### Important constraint
+This feature cannot provide absolute download prevention. Any image displayed in a browser can still be captured through screenshots, browser cache, devtools, or network inspection. The product goal should be reducing casual downloads and avoiding public exposure of original-resolution assets.
+
+### Observed problem
+- Visitors may be able to save or inspect public image URLs directly.
+- Original-resolution URLs should not be treated as safe for public display.
+- There is no clear distinction between public display assets and protected/private source assets.
+
+### User impact
+- Photographers have less control over public image reuse.
+- High-resolution images may be exposed more broadly than intended.
+- The site lacks a visible protection posture for client-facing photo delivery.
+
+### Suggested follow-up
+- Define a public image policy: public pages should use medium or watermarked assets, not original assets.
+- Consider disabling obvious browser affordances such as drag-save and context-menu save on gallery images, while documenting that this is only friction.
+- Consider a watermark pipeline for public display variants.
+- Consider private R2 originals plus signed or proxied access for admin-only original downloads.
+- Review `next/image` and R2 URL behavior so public pages do not leak original asset URLs through props or markup.
+- Add admin-facing settings or documentation for public image size, watermark, and original-file exposure.
+
+### Priority
+`High`
+
+---
+
+## Feedback 8: Add admin traffic and view-count analytics
+
+### User feedback
+The admin backend should show traffic and view-count statistics.
+
+### Current status check
+- The current admin area focuses on upload, photos, albums, comments, and likes.
+- There is no event model for page views, album views, gallery opens, photo impressions, or unique visitors.
+- There is no admin analytics dashboard or reporting UI.
+
+### Observed problem
+- The site owner cannot see which albums or photos are being viewed.
+- Likes and comments do not provide enough visibility into silent traffic.
+- There is no way to compare portfolio interest across albums or photos.
+
+### User impact
+- Content decisions are harder because there is no traffic feedback loop.
+- The admin cannot identify popular albums, under-viewed albums, or recent viewing trends.
+- Gallery Mode optimization cannot be measured without view/open events.
+
+### Suggested follow-up
+- Define analytics event semantics before implementation:
+  - `album_view`: album page loaded
+  - `gallery_open`: visitor switches to Gallery Mode
+  - `photo_detail_view`: photo detail page loaded
+  - `photo_impression`: photo actively visible for a minimum duration
+  - `unique_visitor`: privacy-safe visitor/session estimate
+- Add a persistence model for daily aggregate counts and optional raw events if needed.
+- Add privacy-conscious visitor deduplication, such as session cookie or hashed IP/user-agent with retention limits.
+- Add admin dashboard cards for total views, unique visitors, top albums, top photos, and recent trend.
+- Separate bot filtering and admin self-traffic rules from the first implementation decision.
+
+### Priority
+`Medium-High`
