@@ -203,3 +203,25 @@
 
 **Follow-up adjustment**:
 - Upload count guardrail was raised from 24 to 100 photos per batch to match the operator habit of uploading 50-100 photos at once while keeping the 200MB total batch limit.
+
+### Session #007 - Admin Analytics First Release (2026-04-18)
+**Role**: Human + Agent (Coding Agent)
+**Goal**: Add first-release admin page-view analytics with daily whole-site reporting.
+
+**Completed**:
+- Added timezone-aware analytics date helpers and shared analytics report types.
+- Added daily aggregate analytics storage for Prisma and the JSON backend, keeping `path` and `pageType` for future upgrades.
+- Added resilient public page-view tracking that skips admin sessions and swallows analytics write failures.
+- Wired tracking into home, album detail, and photo detail pages after 404 checks.
+- Added `/admin/analytics` with today, week, month, year, and latest 30 daily page-view and distinct-visitor totals.
+- Added admin navigation entry for the analytics page.
+- Documented first-release scope and future raw-event/top-page upgrade limits in the feedback backlog.
+
+**Verification**:
+- Focused analytics tests passed: `node --import tsx --test src/lib/analytics/date.test.ts src/lib/analytics/tracker.test.ts src/lib/analytics/queries.test.ts`.
+- Prisma Client generation passed: `npx prisma generate`.
+- Full session verification passed: `.session/verify.ps1`.
+
+**Notes**:
+- Implementation commits are on `feat/admin-analytics-impl`, not `master`.
+- `features.json` was not updated because there is no dedicated analytics feature entry and the existing structure should not be changed.
