@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { PageViewBeacon } from "@/components/analytics/page-view-beacon";
 import { AlbumPhotoExperience } from "@/components/gallery/album-photo-experience";
 import { Panel } from "@/components/ui/panel";
 import { getAlbumPageData } from "@/lib/photos/queries";
@@ -23,6 +24,7 @@ export default async function AlbumPage({ params }: AlbumPageProps) {
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-5 pb-6 pt-20 sm:px-8 lg:px-12">
+      <PageViewBeacon pageType="album" path={`/albums/${album.slug}`} />
       <Link href="/" className="text-sm text-stone-600 underline-offset-4 hover:underline">
         ← Back
       </Link>

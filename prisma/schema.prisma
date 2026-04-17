@@ -71,3 +71,29 @@ model PhotoLike {
 
   @@unique([photoId, visitorId])
 }
+
+model AnalyticsDailyMetric {
+  id        Int      @id @default(autoincrement())
+  dateKey   String
+  pageType  String
+  path      String
+  views     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([dateKey, pageType, path])
+  @@index([dateKey])
+}
+
+model AnalyticsDailyVisitor {
+  id        Int      @id @default(autoincrement())
+  dateKey   String
+  visitorId String
+  pageType  String
+  path      String
+  createdAt DateTime @default(now())
+
+  @@unique([dateKey, visitorId, pageType, path])
+  @@index([dateKey])
+  @@index([visitorId])
+}
