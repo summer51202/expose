@@ -96,6 +96,7 @@ export interface PhotoRepository {
   deletePhoto(photoId: number): Promise<PhotoRecord | null>;
   deletePhotos(photoIds: number[]): Promise<PhotoRecord[]>;
   renameAlbumReferences(albumId: number, name: string, slug: string): Promise<void>;
+  clearAlbumReferences(albumId: number): Promise<void>;
 }
 
 const jsonPhotoRepository: PhotoRepository = {
@@ -146,6 +147,16 @@ const jsonPhotoRepository: PhotoRepository = {
               albumName: name,
               albumSlug: slug,
             }
+          : photo,
+      ),
+    );
+  },
+  async clearAlbumReferences(albumId) {
+    const photos = await listManifestPhotos();
+    await replaceManifestPhotos(
+      photos.map((photo) =>
+        photo.albumId === albumId
+          ? { ...photo, albumId: undefined, albumName: undefined, albumSlug: undefined }
           : photo,
       ),
     );
@@ -244,6 +255,10 @@ const prismaPhotoRepository: PhotoRepository = {
     );
   },
   async renameAlbumReferences() {
+    return;
+  },
+  async clearAlbumReferences() {
+    // Handled by Prisma onDelete: SetNull on the album relation
     return;
   },
 };

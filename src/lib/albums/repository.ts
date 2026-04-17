@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   createManifestAlbum,
+  deleteManifestAlbum,
   listManifestAlbums,
   updateManifestAlbum,
 } from "@/lib/albums/manifest-repository";
@@ -14,6 +15,7 @@ export interface AlbumRepository {
   listAlbums(): Promise<AlbumRecord[]>;
   createAlbum(record: AlbumRecord): Promise<void>;
   updateAlbum(albumId: number, updater: (record: AlbumRecord) => AlbumRecord): Promise<void>;
+  deleteAlbum(albumId: number): Promise<void>;
 }
 
 const jsonAlbumRepository: AlbumRepository = {
@@ -25,6 +27,9 @@ const jsonAlbumRepository: AlbumRepository = {
   },
   async updateAlbum(albumId, updater) {
     await updateManifestAlbum(albumId, updater);
+  },
+  async deleteAlbum(albumId) {
+    await deleteManifestAlbum(albumId);
   },
 };
 
@@ -87,6 +92,11 @@ const prismaAlbumRepository: AlbumRepository = {
           next.coverPhotoId != null ? toPrismaBigInt(next.coverPhotoId) : null,
         sortOrder: next.sortOrder,
       },
+    });
+  },
+  async deleteAlbum(albumId) {
+    await prisma.album.delete({
+      where: { id: toPrismaBigInt(albumId) },
     });
   },
 };

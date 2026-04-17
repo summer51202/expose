@@ -27,7 +27,7 @@
           "id": "P1-AUTH",
           "title": "管理員驗證系統",
           "description": "帳號密碼登入、session 管理、保護管理後台路由",
-          "status": "in_progress",
+          "status": "done",
           "priority": 2,
           "dependencies": ["P1-INIT"],
           "acceptance_criteria": [
@@ -42,7 +42,7 @@
           "id": "P1-UPLOAD",
           "title": "照片上傳與多尺寸處理",
           "description": "支援多張批次上傳、拖拉上傳、自動產生三種尺寸（原圖/中圖1200px/縮圖400px）",
-          "status": "in_progress",
+          "status": "done",
           "priority": 3,
           "dependencies": ["P1-AUTH"],
           "acceptance_criteria": [
@@ -58,7 +58,7 @@
           "id": "P1-GALLERY",
           "title": "首頁照片牆（瀑布流 + RWD）",
           "description": "瀑布流佈局顯示照片、響應式設計、blur placeholder",
-          "status": "in_progress",
+          "status": "done",
           "priority": 4,
           "dependencies": ["P1-UPLOAD"],
           "acceptance_criteria": [
@@ -73,7 +73,7 @@
           "id": "P1-VIEWER",
           "title": "照片放大檢視",
           "description": "點擊照片進入詳情頁、顯示中圖、照片資訊",
-          "status": "in_progress",
+          "status": "done",
           "priority": 5,
           "dependencies": ["P1-GALLERY"],
           "acceptance_criteria": [
@@ -125,7 +125,7 @@
           "id": "P2-ALBUM",
           "title": "相簿分類功能",
           "description": "相簿 CRUD、拖拉排序、照片歸屬相簿",
-          "status": "in_progress",
+          "status": "done",
           "priority": 1,
           "dependencies": ["P1-GALLERY"],
           "acceptance_criteria": [
