@@ -17,6 +17,10 @@
   source: "uploaded" | "sample";
 };
 
+export type PublicPhoto = Omit<GalleryPhoto, "originalUrl"> & {
+  albumId?: number | null;
+};
+
 export type PhotoRecord = GalleryPhoto & {
   albumId?: number | null;
   originalKey?: string;

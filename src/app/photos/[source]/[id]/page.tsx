@@ -98,7 +98,7 @@ export default async function PhotoViewerPage({ params, searchParams }: PhotoVie
 
         {/* Left: photo stage */}
         <div className="flex min-h-[60vh] items-center justify-center overflow-hidden rounded-[1.5rem] bg-black lg:min-h-[85vh]">
-          <PhotoStage photo={photo} priority />
+          <PhotoStage photo={photo} priority disableContextMenu />
         </div>
 
         {/* Right: info column */}

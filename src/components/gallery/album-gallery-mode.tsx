@@ -13,12 +13,12 @@ import {
   getPreviousGalleryIndex,
   resolveGalleryDelay,
 } from "@/lib/gallery/gallery-playback";
-import type { GalleryPhoto } from "@/types/photo";
+import type { PublicPhoto } from "@/types/photo";
 
 type AlbumGalleryModeProps = {
   albumName: string;
   albumSlug: string;
-  photos: GalleryPhoto[];
+  photos: PublicPhoto[];
   initialPhotoId?: number | null;
   onBackToGrid: (photoId?: number | null) => void;
   onPhotoChange: (photoId: number) => void;
@@ -34,7 +34,7 @@ function getSavedDelay() {
   return resolveGalleryDelay(Number(window.localStorage.getItem(GALLERY_DELAY_STORAGE_KEY)));
 }
 
-function getInitialIndex(photos: GalleryPhoto[], photoId?: number | null) {
+function getInitialIndex(photos: PublicPhoto[], photoId?: number | null) {
   return Math.max(
     photos.findIndex((photo) => photo.id === photoId),
     0,
