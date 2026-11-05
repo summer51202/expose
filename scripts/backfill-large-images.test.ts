@@ -56,11 +56,11 @@ test("planBackfill refuses to split a photo across storages", () => {
     publicBaseUrl: "https://pub-1.r2.dev",
   });
   assert.equal(plan.action, "skip");
-  assert.match(plan.reason, /storage:migrate:r2/);
+  assert.match(plan.reason ?? "", /storage:migrate:r2/);
 });
 
 test("renderLarge caps the long edge at 2560 and never enlarges", async () => {
-  const make = (width, height) =>
+  const make = (width: number, height: number) =>
     sharp({ create: { width, height, channels: 3, background: "#456" } }).webp().toBuffer();
 
   const big = await sharp(await renderLarge(await make(5000, 3000))).metadata();
