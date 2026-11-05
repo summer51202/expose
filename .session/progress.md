@@ -337,3 +337,53 @@
 **Next**:
 1. On Railway / a real phone: swipe feel, and that Back actually scrolls to the last viewed card in grid view.
 2. Carry-overs from #009: `images.qualities` / `priority` → `preload`.
+
+---
+
+### Session #011 - Home Hero Carousel (2026-11-05)
+**Role**: Human + Agent (Coding Agent)
+**Goal**: Hero carousel without black flashes, only photos that suit a full-bleed landscape frame, and respect for reduced motion.
+**Branch**: `feat/hero-carousel` (from master `3ebf783`)
+
+**Completed**:
+- `selectHeroPhotos(photos, { limit })` in `src/lib/photos/hero-photos.ts` (pure): landscape = `width / height >= 1.2` (zero/NaN sizes rejected), newest first by `createdAt` (stable on ties), max 6. **Top-up rule (decision)**: when fewer than 2 landscape photos exist, the newest other photos are added *only until there are 2*, not up to the limit, so portraits appear only when needed. Home page passes `selectHeroPhotos(photos, { limit: 6 })` to `HeroSection`; `PhotoWallSection` still gets all photos.
+- `nextHeroIndex(count, current, isSkipped)` (same file, pure): next index with wrap-around, skipping photos whose image failed.
+- `HeroSection` rewrite (`src/components/home/hero-section.tsx`):
+  - Two stacked layers keyed by photo: current (z-0) and incoming (z-10, opacity 0). The incoming layer mounts as soon as the current one is shown, so its image downloads in the background (`loading="eager"`, `fetchPriority="low"`).
+  - Fade starts only when the display time (5 s) has passed **and** the incoming image is ready; if the image is late, the fade starts the moment it loads. After the 1 s fade (+100 ms) the incoming layer becomes current and the old one unmounts, so a fully drawn image is always on screen. Only the fade-in is animated (`transitionProperty` is `none` otherwise), so a reassigned layer never covers the current one.
+  - **Readiness comes from the `<img>` itself** (native `load` listener + `complete && naturalWidth > 0`), not next/image `onLoad`: next/image can call `onLoad` for an `<img>` that is `complete` with 0 pixels and then dedupes the real load event for the same src, which stalled the carousel in testing. `error` marks the photo as failed and it is skipped.
+  - First photo uses `preload` (Next 16 deprecates `priority`, per `node_modules/next/dist/docs/01-app/03-api-reference/02-components/image.md`) and keeps the blur placeholder.
+  - Timers are one-shot `setTimeout`s, all cleared in effect cleanups. Pause when `document.visibilityState === "hidden"`, on mouse hover (`pointerType === "mouse"` only) and while focus is inside the hero. Resuming restarts the full 5 s, so returning to the tab never skips several photos.
+  - **Reduced motion (decision)**: `prefers-reduced-motion: reduce` → no autoplay, first photo only, and the incoming layer is never mounted (no extra download). Server snapshot assumes reduced motion, so SSR/hydration never starts the carousel.
+  - **a11y (decision)**: background layers are `aria-hidden` with `alt=""`; a caption link under the title names the current photo (title · album) and links to its photo page. It is not a live region, so screen readers are not interrupted on every change. Caption fades out/in with the photo.
+  - `h-screen` → `h-svh` (Tailwind v4 emits `.h-svh { height: 100svh }`).
+- `tsconfig.json`: `exclude` now has `temp-app` (nested repo from March); its `.next/types/routes.d.ts` merged into this project's global `LayoutProps` and broke `tsc` even on master.
+- `eslint.config.mjs`: ignores `.next-claude-dev/**` (dist dir of `dev-json-local`); with it present, `eslint .` reported 456 errors from generated code.
+
+**Verification**:
+- Unit tests: all `src/**/*.test.ts` + `scripts/*.test.ts` → 117/117 (new: hero-photos 8).
+- `.session/verify.ps1 -Feature "hero-carousel"` → ALL CHECKS PASSED.
+- Browser (`dev-json-local`, port 3004; local data has 18 landscape / 5 portrait photos):
+  - Server HTML / RSC payload: HeroSection `photos` has exactly 6 entries, ids `1774594710321, 1774594373023, 1774594358279, 1774594345456, 1774594339119, 1774243341789`, all ratio ≥ 1.5, matching the newest-landscape list computed from `data/photos.json`.
+  - No-black check (20 ms sampling of layer opacity + `img.complete && naturalWidth > 0`): 7 transitions with cached images, 0 uncovered frames, 6.1 s cadence. With every new image's `src`/`srcset` held back 8 s (in-page patch, simulates a slow network), the incoming layer stayed at opacity 0 until loaded, then faded in; 4 transitions, 0 uncovered frames.
+  - Background tab (`visibilityState` overridden + `visibilitychange`): `data-hero-paused="true"` while hidden, `false` after; no advance during 16 s hidden.
+  - Reduced motion (`matchMedia` stub + client-side remount): only the current layer mounted, no `data-hero-paused` (autoplay off), no change over 7 s.
+  - Focus: focusin on caption → paused, moving to the button inside → still paused, focus leaving → resumed. Real mouse hover → paused; mouse moved to the header → `:hover` false (resume confirmed once a leftover focus was cleared).
+  - 375×812: "View Portfolio" at 204,726–355,772 (fully visible), caption truncates, no horizontal scroll.
+  - Caption link → `/photos/uploaded/<current id>`; HeroSection unmounted, no console warnings/errors after 8 s. Accessibility tree shows the caption link and no hero images.
+- **Not verified with real DevTools throttling**: the Browser pane was hidden for most of the session, and in that state it does not decode images (`naturalWidth` stays 0), so screenshots of the fade and a "Slow 4G × 3 transitions" pass were not done. The DevTools Network check (next image request well before its fade) is also only shown by the layer log (incoming mounted ≈5 s before fade).
+
+**Known issues / not verified**:
+- Please check by hand: DevTools Network → Slow 4G, watch 3 transitions; Rendering → Emulate `prefers-reduced-motion: reduce`; a real phone with a collapsing URL bar (`svh`).
+- If the very first photo is slow, the page shows `bg-stone-900` + blur placeholder until it arrives (no previous image to cover it).
+- Hover pause uses `pointerType === "mouse"`; synthetic `pointerover` events did not trigger it in testing, a real mouse did.
+- `.next-claude-dev/` and `data/analytics-daily-*.json` are untracked dev-server output (not gitignored); left uncommitted.
+- `features.json` has no entry for this feature; not changed.
+
+**Follow-ups**:
+1. Admin "featured" flag for hero photos (not done this session, as requested); `selectHeroPhotos` would prefer featured photos, then fall back to the current rule.
+2. Carry-over from #009: `images.qualities` / per-image `quality` for photography.
+3. Consider adding `.next-claude-dev/` to `.gitignore`.
+
+**Next**:
+1. Run the manual DevTools checks above and on a real phone after deploy.

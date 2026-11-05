@@ -5,6 +5,7 @@ import { PageViewBeacon } from "@/components/analytics/page-view-beacon";
 import { AlbumStripSection } from "@/components/home/album-strip-section";
 import { HeroSection } from "@/components/home/hero-section";
 import { PhotoWallSection } from "@/components/home/photo-wall-section";
+import { selectHeroPhotos } from "@/lib/photos/hero-photos";
 import { getGalleryPhotos } from "@/lib/photos/queries";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +20,7 @@ export default async function Home() {
   return (
     <>
       <PageViewBeacon pageType="home" path="/" />
-      <HeroSection photos={photos} />
+      <HeroSection photos={selectHeroPhotos(photos, { limit: 6 })} />
       <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-5 pb-12 pt-8 sm:px-8 lg:px-12">
         <AlbumStripSection albums={albums} />
         <PhotoWallSection photos={photos} />
