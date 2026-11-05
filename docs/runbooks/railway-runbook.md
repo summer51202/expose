@@ -76,9 +76,11 @@ R2_SECRET_ACCESS_KEY=<r2-secret-access-key>
 R2_BUCKET_NAME=expose
 R2_PUBLIC_BASE_URL=https://pub-xxxxxxxxxxxxxxxx.r2.dev
 R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+SITE_URL=https://<your-public-domain>
 ```
 
 Notes:
+- `SITE_URL` is the public origin used for canonical URLs, share-preview (Open Graph) URLs, `robots.txt` and `sitemap.xml`. If unset, the app falls back to Railway's `RAILWAY_PUBLIC_DOMAIN`, then `http://localhost:3000`. Set it explicitly once a custom domain is attached.
 - Railway does not automatically use your local `.env`
 - Every production variable must be added in Railway
 - `AUTH_SECRET` is required for session/cookie signing

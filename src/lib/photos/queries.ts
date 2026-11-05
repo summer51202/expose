@@ -1,4 +1,6 @@
-﻿import { getAlbums } from "@/lib/albums/queries";
+﻿import { cache } from "react";
+
+import { getAlbums } from "@/lib/albums/queries";
 import { normalizeAlbumSlug } from "@/lib/albums/slug";
 import { getPhotoRepository } from "@/lib/photos/repository";
 import { samplePhotos } from "@/lib/photos/sample-photos";
@@ -45,10 +47,11 @@ export async function getAdminUploadedPhotos(): Promise<PhotoRecord[]> {
   return uploadedPhotos.sort(byCreatedAtDesc);
 }
 
-export async function getPhotoBySourceAndId(source: string, id: number) {
+// Memoized per request so generateMetadata and the page share one lookup.
+export const getPhotoBySourceAndId = cache(async (source: string, id: number) => {
   const photos = await listPhotosForSource(source);
   return photos.find((photo) => photo.id === id) ?? null;
-}
+});
 
 export async function getPhotoNeighbors(source: string, id: number) {
   const photos = await listPhotosForSource(source);
@@ -84,7 +87,8 @@ export async function getPhotosByAlbumSlug(slug: string) {
   return photos.filter((photo) => photo.albumId === album.id);
 }
 
-export async function getAlbumPageData(slug: string) {
+// Memoized per request so generateMetadata and the page share one lookup.
+export const getAlbumPageData = cache(async (slug: string) => {
   const normalizedSlug = normalizeAlbumSlug(slug);
   const [albums, photos] = await Promise.all([
     getAlbums(),
@@ -102,4 +106,4 @@ export async function getAlbumPageData(slug: string) {
     album,
     photos: photos.filter((photo) => photo.albumId === album.id),
   };
-}
+});

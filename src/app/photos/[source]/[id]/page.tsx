@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -15,6 +16,7 @@ import {
   getPhotoBySourceAndId,
   getPhotoNeighbors,
 } from "@/lib/photos/queries";
+import { baseOpenGraph, buildPhotoDescription, buildPhotoPath } from "@/lib/seo/metadata";
 
 type PhotoViewerPageProps = {
   params: Promise<{
@@ -27,6 +29,39 @@ type PhotoViewerPageProps = {
     returnPhoto?: string;
   }>;
 };
+
+export async function generateMetadata({ params }: PhotoViewerPageProps): Promise<Metadata> {
+  const { source, id } = await params;
+  const photo = await getPhotoBySourceAndId(source, Number(id));
+
+  if (!photo) {
+    return { title: "Photo not found", robots: { index: false } };
+  }
+
+  const description = buildPhotoDescription(photo);
+  // Canonical drops the ?returnAlbum/returnView/returnPhoto navigation params.
+  const canonical = buildPhotoPath(photo);
+
+  return {
+    title: photo.title,
+    description,
+    alternates: { canonical },
+    // Sample placeholders only exist before the first upload; keep them out of search.
+    robots: photo.source === "sample" ? { index: false } : undefined,
+    openGraph: {
+      ...baseOpenGraph,
+      type: "article",
+      url: canonical,
+      title: photo.title,
+      description,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: photo.title,
+      description,
+    },
+  };
+}
 
 export default async function PhotoViewerPage({ params, searchParams }: PhotoViewerPageProps) {
   const { source, id } = await params;
