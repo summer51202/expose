@@ -1,5 +1,6 @@
 import Image from "next/image";
 
+import { ContextMenuGuard } from "@/components/gallery/context-menu-guard";
 import { getDisplayImageUrl, type DisplayImageVariant } from "@/lib/photos/display-image";
 import { cn } from "@/lib/utils";
 import type { PublicPhoto } from "@/types/photo";
@@ -36,10 +37,10 @@ export function PhotoStage({
   const sampleGradient = sampleGradients[photo.id % sampleGradients.length];
 
   return (
-    <div
+    <ContextMenuGuard
+      enabled={disableContextMenu}
       className="relative w-full overflow-hidden rounded-[1.25rem]"
       style={{ aspectRatio: `${photo.width} / ${photo.height}` }}
-      onContextMenu={disableContextMenu ? (event) => event.preventDefault() : undefined}
     >
       {isSample ? (
         <div className={cn("absolute inset-0 bg-gradient-to-br", sampleGradient)}>
@@ -58,6 +59,6 @@ export function PhotoStage({
           blurDataURL={photo.blurDataUrl}
         />
       )}
-    </div>
+    </ContextMenuGuard>
   );
 }
