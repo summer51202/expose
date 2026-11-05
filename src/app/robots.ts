@@ -15,6 +15,5 @@ export default function robots(): MetadataRoute.Robots {
       disallow: [`${siteConfig.adminPath}/`, siteConfig.adminPath, "/api/"],
     },
     sitemap: toAbsoluteUrl("/sitemap.xml", siteUrl),
-    host: siteUrl.origin,
   };
 }
