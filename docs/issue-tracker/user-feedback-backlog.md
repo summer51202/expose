@@ -385,6 +385,7 @@ The site should make it harder for visitors to directly download photos.
 - Uploaded image assets are stored with original, medium, and thumbnail variants.
 - R2 public URLs may expose direct asset access depending on current storage configuration.
 - There is no current download-protection policy, watermarking flow, signed URL flow, or admin setting for public image exposure.
+- Phase 1 should be treated as application-level exposure reduction only: public pages should not send `originalUrl` or `originalKey` to the browser, but public or predictable R2 original object URLs remain a residual storage risk until a Phase 2 R2 privatization or signed/proxied access phase.
 
 ### Important constraint
 This feature cannot provide absolute download prevention. Any image displayed in a browser can still be captured through screenshots, browser cache, devtools, or network inspection. The product goal should be reducing casual downloads and avoiding public exposure of original-resolution assets.

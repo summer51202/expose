@@ -37,6 +37,7 @@ export function AlbumCoverSlideshow({ photos }: AlbumCoverSlideshowProps) {
             alt={photo.title}
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
+            draggable={false}
             className="object-cover transition-opacity duration-700"
             style={{ opacity: isVisible ? 1 : 0 }}
             placeholder={photo.blurDataUrl ? "blur" : "empty"}

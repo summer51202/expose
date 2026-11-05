@@ -1,8 +1,8 @@
 import { PhotoCard } from "@/components/gallery/photo-card";
-import type { GalleryPhoto } from "@/types/photo";
+import type { PublicPhoto } from "@/types/photo";
 
 type PhotoGridProps = {
-  photos: GalleryPhoto[];
+  photos: PublicPhoto[];
 };
 
 export function PhotoGrid({ photos }: PhotoGridProps) {
