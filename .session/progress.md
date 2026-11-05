@@ -297,3 +297,43 @@
 **Next**:
 1. After deploy, check on a 4K/Retina screen that hero requests `…-large.webp` via `/_next/image` and that deleting a test photo removes its 4 objects in R2.
 2. Consider `images.qualities` / per-image `quality` for photography (default 75) and migrating `priority` → `preload`.
+
+---
+
+### Session #010 - Photo Page Navigation (2026-11-05)
+**Role**: Human + Agent (Coding Agent)
+**Goal**: Photo page prev/next stays inside the album, keeps the "← Back" return position, and works with keyboard and swipe.
+**Branch**: `feat/photo-page-navigation` (from master `3c9c6ff`)
+
+**Album order (checked)**: the album grid and gallery playback both use `getAlbumPageData` → `listUploadedPhotos()` (createdAt desc in both repositories) filtered by `albumId`, no re-sorting in `PhotoGrid` / `AlbumGalleryMode`. That filter now lives in `filterAlbumPhotos()` (`src/lib/photos/photo-navigation.ts`) and is used by the album page *and* the photo page, so the sequences cannot drift. (Grid is CSS columns, so the visual reading order is column-wise; DOM/playback order is the list order.)
+
+**Completed**:
+- `src/lib/photos/photo-navigation.ts` (pure): `resolvePhotoNavigationScope` (returnAlbum if the photo is really in it → photo's own album → site-wide for album-less / orphaned / sample photos; malformed `%` slugs don't throw), `findPhotoNeighbors` (no wrap-around, returns index/total), `getScopedPhotoNeighbors`.
+- `getPhotoNavigation(photo, returnAlbum)` in `queries.ts` replaces `getPhotoNeighbors`: one photo-list read + `listAlbums()` (album repository directly, not `getAlbums()` which lists photos again).
+- `getPhotoBySourceAndId`: uploaded photos now use new `PhotoRepository.findUploadedPhotoById` (Prisma `findUnique` with album include; JSON: manifest find). Invalid ids return null without hitting the DB. Still wrapped in React `cache()`.
+- URL helpers in `src/lib/gallery/album-gallery-url.ts`: `buildPhotoDetailHref(photo, {album, view})` and `buildAlbumReturnHref(slug, view, photoId)`. Used by photo page, `PhotoCard`, and `AlbumGalleryMode` (no more hand-built query strings in components).
+- Photo page: prev/next carry `returnAlbum` + `returnView`, `returnPhoto` = target id; "← Back" uses the verified album slug. Added "n / total" counter; disabled arrows get `aria-disabled`. `<Link prefetch>` on prev/next.
+- `PhotoPageNavigation` client component (`src/components/gallery/photo-page-navigation.tsx`) wraps the photo stage: ← / → / Esc via `router.push`, `router.prefetch` for both neighbors, swipe on the stage (≥50px and |dx| > |dy|, single finger, `touch-action: pan-y pinch-zoom`). Key filter in `src/lib/gallery/photo-page-gestures.ts` ignores input/textarea/select/contenteditable, IME composition, and modifier keys (so Alt+← browser back still works).
+- `generateMetadata` canonical untouched.
+
+**Verification**:
+- Unit tests: all `src/**/*.test.ts` + `scripts/*.test.ts` → 109/109 (new: photo-navigation 11, photo-page-gestures 6, album-gallery-url +4).
+- `.session/verify.ps1 -Feature "photo-nav"` → ALL CHECKS PASSED.
+- Browser (`dev-json-local`, port 3004), album `album-1774242812405` (4 photos):
+  - Grid card → → → → : 1/4 … 4/4, never left the album; at 4/4 Next is disabled and → does nothing.
+  - Every hop kept `returnAlbum` + `returnView`, `returnPhoto` followed the current photo. Back link and Esc → `/albums/…?view=grid&photo=<last viewed>`; `returnView=gallery` → gallery overlay reopened on the last viewed photo.
+  - ← / → / Esc typed in the comment textarea: no navigation.
+  - 375px: 120px left swipe → next, right swipe → previous; vertical drag and 30px horizontal drag → no navigation.
+  - Album-less photo: site-wide order (10 / 23), Back → `/`, canonical has no params. No console or server errors.
+- **Scroll restore caveat**: the Browser pane was hidden, so `requestAnimationFrame` never fired and `window.scrollTo` had no effect there. With rAF shimmed to `setTimeout`, the album page called `scrollIntoView({block:"center"})` on `#photo-<last viewed>` after Back. Actual scroll position not seen on screen — check once on a real phone/browser.
+
+**Known issues / not verified**:
+- Prisma path (`findUnique`, album scope with real DB) not run locally (SQLite has no tables); logic shared with JSON path via pure functions.
+- Stepping from an album-less photo onto an album photo (site-wide order) switches to that album's scope on the next hop — consistent with "use the photo's own album", but noted.
+- Next image *file* is not preloaded, only the route (RSC payload); `<Link prefetch>` is a no-op in dev.
+- `features.json` has no entry for this feature; not changed.
+- Dev server rewrote `tsconfig.json` include (`.next-claude-dev/types`); reverted, not committed.
+
+**Next**:
+1. On Railway / a real phone: swipe feel, and that Back actually scrolls to the last viewed card in grid view.
+2. Carry-overs from #009: `images.qualities` / `priority` → `preload`.
