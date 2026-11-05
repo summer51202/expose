@@ -5,16 +5,22 @@ import { notFound } from "next/navigation";
 import { PageViewBeacon } from "@/components/analytics/page-view-beacon";
 import { CommentForm } from "@/components/comments/comment-form";
 import { CommentList } from "@/components/comments/comment-list";
+import { PhotoPageNavigation } from "@/components/gallery/photo-page-navigation";
 import { PhotoStage } from "@/components/gallery/photo-stage";
 import { LikeButton } from "@/components/likes/like-button";
 import { Panel } from "@/components/ui/panel";
 import { getCommentsByPhoto } from "@/lib/comments/queries";
 import { getLikeSummaryByPhoto } from "@/lib/likes/queries";
-import { resolveAlbumViewMode, resolvePhotoIdParam } from "@/lib/gallery/album-gallery-url";
+import {
+  buildAlbumReturnHref,
+  buildPhotoDetailHref,
+  resolveAlbumViewMode,
+  resolvePhotoIdParam,
+} from "@/lib/gallery/album-gallery-url";
 import { getExifDisplayFields } from "@/lib/photos/exif";
 import {
   getPhotoBySourceAndId,
-  getPhotoNeighbors,
+  getPhotoNavigation,
 } from "@/lib/photos/queries";
 import { baseOpenGraph, buildPhotoDescription, buildPhotoPath } from "@/lib/seo/metadata";
 
@@ -73,17 +79,23 @@ export default async function PhotoViewerPage({ params, searchParams }: PhotoVie
   }
 
   const [neighbors, exifFields, comments, likeSummary] = await Promise.all([
-    getPhotoNeighbors(photo.source, photo.id),
+    getPhotoNavigation(photo, returnParams.returnAlbum),
     Promise.resolve(getExifDisplayFields(photo.exifData ?? null)),
     getCommentsByPhoto(photo.source, photo.id),
     getLikeSummaryByPhoto(photo.source, photo.id),
   ]);
-  const returnAlbum = returnParams.returnAlbum ?? photo.albumSlug;
+  // Prefer the album we are actually stepping through; it is verified to contain this photo.
+  const returnAlbum =
+    (neighbors.scope.kind === "album" ? neighbors.scope.albumSlug : null) ??
+    returnParams.returnAlbum ??
+    photo.albumSlug;
   const returnView = resolveAlbumViewMode(returnParams.returnView ?? null);
   const returnPhoto = resolvePhotoIdParam(returnParams.returnPhoto ?? null) ?? photo.id;
-  const backHref = returnAlbum
-    ? `/albums/${encodeURIComponent(returnAlbum)}?view=${returnView}&photo=${returnPhoto}`
-    : "/";
+  const backHref = returnAlbum ? buildAlbumReturnHref(returnAlbum, returnView, returnPhoto) : "/";
+  // Neighbor links keep the album + view and move returnPhoto to the target photo.
+  const returnState = returnAlbum ? { album: returnAlbum, view: returnView } : null;
+  const previousHref = neighbors.previous ? buildPhotoDetailHref(neighbors.previous, returnState) : null;
+  const nextHref = neighbors.next ? buildPhotoDetailHref(neighbors.next, returnState) : null;
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-5 pb-12 pt-20 sm:px-8 lg:px-12">
@@ -99,29 +111,44 @@ export default async function PhotoViewerPage({ params, searchParams }: PhotoVie
         </Link>
 
         <div className="flex flex-wrap items-center gap-2">
-          {neighbors.previous ? (
+          {neighbors.total > 1 && neighbors.index >= 0 ? (
+            <span className="mr-1 text-xs tabular-nums text-white/40">
+              {neighbors.index + 1} / {neighbors.total}
+            </span>
+          ) : null}
+          {previousHref ? (
             <Link
-              href={`/photos/${neighbors.previous.source}/${neighbors.previous.id}`}
+              href={previousHref}
+              prefetch
               className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 text-white/60 transition hover:border-white/40 hover:text-white"
               aria-label="Previous photo"
             >
               ←
             </Link>
           ) : (
-            <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white/8 text-white/20">
+            <span
+              aria-disabled="true"
+              aria-label="Previous photo (none)"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/8 text-white/20"
+            >
               ←
             </span>
           )}
-          {neighbors.next ? (
+          {nextHref ? (
             <Link
-              href={`/photos/${neighbors.next.source}/${neighbors.next.id}`}
+              href={nextHref}
+              prefetch
               className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 text-white/60 transition hover:border-white/40 hover:text-white"
               aria-label="Next photo"
             >
               →
             </Link>
           ) : (
-            <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white/8 text-white/20">
+            <span
+              aria-disabled="true"
+              aria-label="Next photo (none)"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/8 text-white/20"
+            >
               →
             </span>
           )}
@@ -132,7 +159,12 @@ export default async function PhotoViewerPage({ params, searchParams }: PhotoVie
       <section className="grid gap-6 lg:grid-cols-[1.4fr_0.6fr]">
 
         {/* Left: photo stage */}
-        <div className="flex min-h-[60vh] items-center justify-center overflow-hidden rounded-[1.5rem] bg-black lg:min-h-[85vh]">
+        <PhotoPageNavigation
+          previousHref={previousHref}
+          nextHref={nextHref}
+          backHref={backHref}
+          className="flex min-h-[60vh] items-center justify-center overflow-hidden rounded-[1.5rem] bg-black lg:min-h-[85vh]"
+        >
           <PhotoStage
             photo={photo}
             priority
@@ -141,7 +173,7 @@ export default async function PhotoViewerPage({ params, searchParams }: PhotoVie
             // Left column of the lg:grid-cols-[1.4fr_0.6fr] grid inside max-w-7xl.
             sizes="(min-width: 1280px) 812px, (min-width: 1024px) 62vw, 100vw"
           />
-        </div>
+        </PhotoPageNavigation>
 
         {/* Right: info column */}
         <div className="flex flex-col gap-4">

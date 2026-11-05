@@ -1,8 +1,13 @@
 ﻿import { cache } from "react";
 
 import { getAlbums } from "@/lib/albums/queries";
+import { getAlbumRepository } from "@/lib/albums/repository";
 import { normalizeAlbumSlug } from "@/lib/albums/slug";
 import { toPublicPhoto, toPublicPhotos } from "@/lib/photos/public-photo";
+import {
+  filterAlbumPhotos,
+  getScopedPhotoNeighbors,
+} from "@/lib/photos/photo-navigation";
 import { getPhotoRepository } from "@/lib/photos/repository";
 import { samplePhotos } from "@/lib/photos/sample-photos";
 import type { GalleryPhoto, PhotoRecord, PublicPhoto } from "@/types/photo";
@@ -50,25 +55,42 @@ export async function getAdminUploadedPhotos(): Promise<PhotoRecord[]> {
 
 // Memoized per request so generateMetadata and the page share one lookup.
 export const getPhotoBySourceAndId = cache(async (source: string, id: number) => {
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    return null;
+  }
+
+  if (source === "uploaded") {
+    const photo = await getPhotoRepository().findUploadedPhotoById(id);
+    return photo ? toPublicPhoto(photo) : null;
+  }
+
   const photos = await listPhotosForSource(source);
   const photo = photos.find((item) => item.id === id);
   return photo ? toPublicPhoto(photo) : null;
 });
 
-export async function getPhotoNeighbors(source: string, id: number) {
-  const photos = await listPhotosForSource(source);
-  const index = photos.findIndex((photo) => photo.id === id);
-
-  if (index === -1) {
-    return {
-      previous: null,
-      next: null,
-    };
-  }
+/**
+ * Previous / next for the photo page. Walks the same album sequence as the
+ * album grid and gallery playback (see filterAlbumPhotos); photos without an
+ * album fall back to the site-wide order. One photo list read per call.
+ */
+export async function getPhotoNavigation(
+  photo: Pick<PublicPhoto, "id" | "source" | "albumId">,
+  returnAlbum?: string | null,
+) {
+  const needsAlbums = photo.source === "uploaded" && photo.albumId != null;
+  const [sourcePhotos, albums] = await Promise.all([
+    listPhotosForSource(photo.source),
+    needsAlbums ? getAlbumRepository().listAlbums() : Promise.resolve([]),
+  ]);
+  const result = getScopedPhotoNeighbors(photo, sourcePhotos, albums, returnAlbum);
 
   return {
-    previous: photos[index - 1] ? toPublicPhoto(photos[index - 1]) : null,
-    next: photos[index + 1] ? toPublicPhoto(photos[index + 1]) : null,
+    scope: result.scope,
+    index: result.index,
+    total: result.total,
+    previous: result.previous ? toPublicPhoto(result.previous) : null,
+    next: result.next ? toPublicPhoto(result.next) : null,
   };
 }
 
@@ -86,7 +108,7 @@ export async function getPhotosByAlbumSlug(slug: string) {
     return [];
   }
 
-  return toPublicPhotos(photos.filter((photo) => photo.albumId === album.id));
+  return toPublicPhotos(filterAlbumPhotos(photos, album.id));
 }
 
 // Memoized per request so generateMetadata and the page share one lookup.
@@ -106,6 +128,6 @@ export const getAlbumPageData = cache(async (slug: string) => {
 
   return {
     album,
-    photos: toPublicPhotos(photos.filter((photo) => photo.albumId === album.id)),
+    photos: toPublicPhotos(filterAlbumPhotos(photos, album.id)),
   };
 });

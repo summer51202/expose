@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { PhotoStage } from "@/components/gallery/photo-stage";
+import { buildPhotoDetailHref } from "@/lib/gallery/album-gallery-url";
 import type { PublicPhoto } from "@/types/photo";
 
 type PhotoCardProps = {
@@ -8,9 +9,10 @@ type PhotoCardProps = {
 };
 
 export function PhotoCard({ photo }: PhotoCardProps) {
-  const detailHref = photo.albumSlug
-    ? `/photos/${photo.source}/${photo.id}?returnAlbum=${encodeURIComponent(photo.albumSlug)}&returnView=grid&returnPhoto=${photo.id}`
-    : `/photos/${photo.source}/${photo.id}`;
+  const detailHref = buildPhotoDetailHref(
+    photo,
+    photo.albumSlug ? { album: photo.albumSlug, view: "grid" } : null,
+  );
 
   return (
     <article id={`photo-${photo.id}`} className="mb-4 break-inside-avoid scroll-mt-24">

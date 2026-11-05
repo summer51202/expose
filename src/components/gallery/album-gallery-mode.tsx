@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 
 import { GalleryFilmStrip } from "@/components/gallery/gallery-film-strip";
 import { GalleryImageStage } from "@/components/gallery/gallery-image-stage";
+import { buildPhotoDetailHref } from "@/lib/gallery/album-gallery-url";
 import {
   DEFAULT_GALLERY_DELAY_MS,
   GALLERY_PLAYBACK_DELAYS_MS,
@@ -79,9 +80,7 @@ export function AlbumGalleryMode({
 
     setIsPlaying(false);
     startTransition(() => {
-      router.push(
-        `/photos/${currentPhoto.source}/${currentPhoto.id}?returnAlbum=${encodeURIComponent(albumSlug)}&returnView=gallery&returnPhoto=${currentPhoto.id}`,
-      );
+      router.push(buildPhotoDetailHref(currentPhoto, { album: albumSlug, view: "gallery" }));
     });
   }, [albumSlug, currentPhoto, router]);
 

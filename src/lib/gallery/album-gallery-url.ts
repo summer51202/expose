@@ -37,3 +37,41 @@ export function shouldReplaceAlbumViewQuery(
 ) {
   return buildAlbumViewQuery(currentQuery, mode, photoId) !== currentQuery;
 }
+
+export type PhotoReturnState = {
+  album: string;
+  view: AlbumViewMode;
+};
+
+/** `/albums/<slug>?view=<mode>&photo=<id>` — where "← Back" on a photo page goes. */
+export function buildAlbumReturnHref(
+  albumSlug: string,
+  view: AlbumViewMode,
+  photoId?: number | null,
+) {
+  const query = buildAlbumViewQuery("", view, photoId);
+  return `/albums/${encodeURIComponent(albumSlug)}?${query}`;
+}
+
+/**
+ * Photo detail URL. With a return state it carries returnAlbum / returnView and
+ * sets returnPhoto to this photo, so "← Back" lands on the last photo viewed.
+ */
+export function buildPhotoDetailHref(
+  photo: { source: string; id: number },
+  returnState?: PhotoReturnState | null,
+) {
+  const path = `/photos/${encodeURIComponent(photo.source)}/${photo.id}`;
+
+  if (!returnState?.album) {
+    return path;
+  }
+
+  const params = new URLSearchParams({
+    returnAlbum: returnState.album,
+    returnView: returnState.view,
+    returnPhoto: String(photo.id),
+  });
+
+  return `${path}?${params.toString()}`;
+}
