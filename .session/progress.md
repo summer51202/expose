@@ -225,3 +225,33 @@
 **Notes**:
 - Implementation commits are on `feat/admin-analytics-impl`, not `master`.
 - `features.json` was not updated because there is no dedicated analytics feature entry and the existing structure should not be changed.
+
+### Session #008 - SEO & Share Previews (2026-11-05)
+**Role**: Human + Agent (Coding Agent)
+**Goal**: Make pages discoverable and give every public page a proper link preview (IG / FB / LINE / X).
+
+**Completed**:
+- Root `metadataBase` (from new `SITE_URL` env, falling back to `RAILWAY_PUBLIC_DOMAIN`, then localhost), title template `%s · Expose`, default Open Graph + Twitter `summary_large_image`.
+- `generateMetadata` for `/photos/[source]/[id]` and `/albums/[slug]`: title, description (custom text or generated fallback), canonical URL without the `returnAlbum` / `view` / `photo` navigation params, Open Graph + Twitter fields.
+- `opengraph-image.ts` for home (latest upload), album (cover photo → first photo) and photo pages: 1200×630 JPEG via sharp with attention-based crop. JPEG on purpose because LINE does not render WebP previews. Dark fallback image if the source cannot be loaded.
+- Image source loading is restricted to files under `public/` and the `R2_PUBLIC_BASE_URL` host (no open fetch proxy).
+- `sitemap.xml` (home, non-empty albums, uploaded photos, with image entries) and `robots.txt` (disallow `/admin`, `/api/`).
+- `noindex` for `/admin/*` and sample placeholder photos.
+- `getPhotoBySourceAndId` / `getAlbumPageData` wrapped in React `cache()` so metadata and page share one lookup per request.
+- `SITE_URL` added to `.env.example` and the Railway runbook.
+
+**Verification**:
+- `node --import tsx --test src/lib/seo/seo.test.ts` passed (8 tests, incl. path-traversal and host allowlist checks).
+- `.session/verify.ps1 -Feature "SEO"` → ALL CHECKS PASSED (after deleting stale April build outputs `.next-build/` and `.next-build-output/`, whose old generated route types broke `tsc`).
+- Manual run on `DATA_BACKEND=json STORAGE_BACKEND=local`: head tags, canonical, robots, sitemap, and all three OG images (200, image/jpeg, 1200×630) checked; missing photo OG → 404.
+
+**Known issues / not verified**:
+- Local Prisma SQLite (`.env` DATA_BACKEND=prisma) has no tables, so the Prisma + R2 path was not exercised locally. Check on Railway: `/sitemap.xml`, `/opengraph-image`, and one photo's `/opengraph-image` (fetches from R2).
+- In `next dev`, `og:image` uses the request host; in production it uses `metadataBase`, so `SITE_URL` must be set on Railway (or rely on `RAILWAY_PUBLIC_DOMAIN`).
+- `features.json` has no SEO entry, so it was not updated (structure must not change).
+- `<html lang="en">` left as-is; decide later whether the site is English- or Chinese-first.
+
+**Next**:
+1. Deploy, set `SITE_URL`, and test a photo link with Facebook Sharing Debugger and LINE.
+2. Submit `sitemap.xml` in Google Search Console.
+3. Next feature candidate: add a high-resolution (≈2560px) image derivative; hero and photo page currently use the 1200px `medium`.

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -5,12 +6,44 @@ import { PageViewBeacon } from "@/components/analytics/page-view-beacon";
 import { AlbumPhotoExperience } from "@/components/gallery/album-photo-experience";
 import { Panel } from "@/components/ui/panel";
 import { getAlbumPageData } from "@/lib/photos/queries";
+import { baseOpenGraph, buildAlbumDescription, buildAlbumPath } from "@/lib/seo/metadata";
 
 type AlbumPageProps = {
   params: Promise<{
     slug: string;
   }>;
 };
+
+export async function generateMetadata({ params }: AlbumPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const pageData = await getAlbumPageData(slug);
+
+  if (!pageData) {
+    return { title: "Album not found", robots: { index: false } };
+  }
+
+  const { album, photos } = pageData;
+  const description = buildAlbumDescription(album, photos.length);
+  // Canonical drops the ?view=&photo= gallery-state params.
+  const canonical = buildAlbumPath(album);
+
+  return {
+    title: album.name,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      ...baseOpenGraph,
+      url: canonical,
+      title: album.name,
+      description,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: album.name,
+      description,
+    },
+  };
+}
 
 export default async function AlbumPage({ params }: AlbumPageProps) {
   const { slug } = await params;

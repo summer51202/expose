@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+
 import { getAlbums } from "@/lib/albums/queries";
 import { PageViewBeacon } from "@/components/analytics/page-view-beacon";
 import { AlbumStripSection } from "@/components/home/album-strip-section";
@@ -6,6 +8,10 @@ import { PhotoWallSection } from "@/components/home/photo-wall-section";
 import { getGalleryPhotos } from "@/lib/photos/queries";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 export default async function Home() {
   const [photos, albums] = await Promise.all([getGalleryPhotos(), getAlbums()]);
