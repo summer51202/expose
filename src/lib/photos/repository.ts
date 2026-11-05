@@ -94,6 +94,7 @@ function mapPhotoCreateInput(record: PhotoRecord) {
 
 export interface PhotoRepository {
   listUploadedPhotos(): Promise<PhotoRecord[]>;
+  findUploadedPhotoById(photoId: number): Promise<PhotoRecord | null>;
   savePhotos(records: PhotoRecord[]): Promise<void>;
   movePhotoToAlbum(photoId: number, assignment: PhotoAlbumAssignment): Promise<void>;
   movePhotosToAlbum(photoIds: number[], assignment: PhotoAlbumAssignment): Promise<void>;
@@ -106,6 +107,10 @@ export interface PhotoRepository {
 const jsonPhotoRepository: PhotoRepository = {
   async listUploadedPhotos() {
     return listManifestPhotos();
+  },
+  async findUploadedPhotoById(photoId) {
+    const photos = await listManifestPhotos();
+    return photos.find((photo) => photo.id === photoId) ?? null;
   },
   async savePhotos(records) {
     await saveManifestPhotos(records);
@@ -186,6 +191,23 @@ const prismaPhotoRepository: PhotoRepository = {
     return photos.map((photo) =>
       mapPhotoRecordFromPrisma(photo as PrismaPhotoWithAlbum),
     );
+  },
+  async findUploadedPhotoById(photoId) {
+    const photo = await prisma.photo.findUnique({
+      where: {
+        id: toPrismaBigInt(photoId),
+      },
+      include: {
+        album: {
+          select: {
+            name: true,
+            slug: true,
+          },
+        },
+      },
+    });
+
+    return photo ? mapPhotoRecordFromPrisma(photo as PrismaPhotoWithAlbum) : null;
   },
   async savePhotos(records) {
     for (const record of records) {
