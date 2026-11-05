@@ -193,6 +193,15 @@ async function migratePhoto(config, photo) {
     },
   ];
 
+  if (photo.largeUrl) {
+    uploads.push({
+      field: "large",
+      currentUrl: photo.largeUrl,
+      currentKey: photo.largeKey ?? photo.largeUrl,
+      contentType: "image/webp",
+    });
+  }
+
   const migrated = {};
 
   for (const asset of uploads) {
@@ -218,6 +227,9 @@ async function migratePhoto(config, photo) {
       mediumKey: migrated.medium.key,
       thumbnailUrl: migrated.thumbnail.url,
       thumbnailKey: migrated.thumbnail.key,
+      ...(migrated.large
+        ? { largeUrl: migrated.large.url, largeKey: migrated.large.key }
+        : {}),
       storageProvider: "r2",
     },
   });

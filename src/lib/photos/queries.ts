@@ -2,15 +2,16 @@
 
 import { getAlbums } from "@/lib/albums/queries";
 import { normalizeAlbumSlug } from "@/lib/albums/slug";
+import { toPublicPhoto, toPublicPhotos } from "@/lib/photos/public-photo";
 import { getPhotoRepository } from "@/lib/photos/repository";
 import { samplePhotos } from "@/lib/photos/sample-photos";
-import type { GalleryPhoto, PhotoRecord } from "@/types/photo";
+import type { GalleryPhoto, PhotoRecord, PublicPhoto } from "@/types/photo";
 
 function byCreatedAtDesc(a: GalleryPhoto, b: GalleryPhoto) {
   return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
 }
 
-async function listPhotosForSource(source: string): Promise<GalleryPhoto[]> {
+async function listPhotosForSource(source: string): Promise<PhotoRecord[]> {
   const photoRepository = getPhotoRepository();
 
   if (source === "uploaded") {
@@ -25,21 +26,21 @@ async function listPhotosForSource(source: string): Promise<GalleryPhoto[]> {
 }
 
 export async function getPhotosForSource(source: string) {
-  return listPhotosForSource(source);
+  return toPublicPhotos(await listPhotosForSource(source));
 }
 
-export async function getGalleryPhotos(): Promise<GalleryPhoto[]> {
+export async function getGalleryPhotos(): Promise<PublicPhoto[]> {
   const uploadedPhotos = await getPhotoRepository().listUploadedPhotos();
   if (uploadedPhotos.length > 0) {
-    return uploadedPhotos;
+    return toPublicPhotos(uploadedPhotos);
   }
 
-  return samplePhotos;
+  return toPublicPhotos(samplePhotos);
 }
 
-export async function getRecentUploads(limit = 6): Promise<GalleryPhoto[]> {
+export async function getRecentUploads(limit = 6): Promise<PublicPhoto[]> {
   const uploadedPhotos = await getPhotoRepository().listUploadedPhotos();
-  return uploadedPhotos.slice(0, limit);
+  return toPublicPhotos(uploadedPhotos.slice(0, limit));
 }
 
 export async function getAdminUploadedPhotos(): Promise<PhotoRecord[]> {
@@ -50,7 +51,8 @@ export async function getAdminUploadedPhotos(): Promise<PhotoRecord[]> {
 // Memoized per request so generateMetadata and the page share one lookup.
 export const getPhotoBySourceAndId = cache(async (source: string, id: number) => {
   const photos = await listPhotosForSource(source);
-  return photos.find((photo) => photo.id === id) ?? null;
+  const photo = photos.find((item) => item.id === id);
+  return photo ? toPublicPhoto(photo) : null;
 });
 
 export async function getPhotoNeighbors(source: string, id: number) {
@@ -65,8 +67,8 @@ export async function getPhotoNeighbors(source: string, id: number) {
   }
 
   return {
-    previous: photos[index - 1] ?? null,
-    next: photos[index + 1] ?? null,
+    previous: photos[index - 1] ? toPublicPhoto(photos[index - 1]) : null,
+    next: photos[index + 1] ? toPublicPhoto(photos[index + 1]) : null,
   };
 }
 
@@ -84,7 +86,7 @@ export async function getPhotosByAlbumSlug(slug: string) {
     return [];
   }
 
-  return photos.filter((photo) => photo.albumId === album.id);
+  return toPublicPhotos(photos.filter((photo) => photo.albumId === album.id));
 }
 
 // Memoized per request so generateMetadata and the page share one lookup.
@@ -104,6 +106,6 @@ export const getAlbumPageData = cache(async (slug: string) => {
 
   return {
     album,
-    photos: photos.filter((photo) => photo.albumId === album.id),
+    photos: toPublicPhotos(photos.filter((photo) => photo.albumId === album.id)),
   };
 });

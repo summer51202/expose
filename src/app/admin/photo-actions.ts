@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getAlbumOptions } from "@/lib/albums/queries";
 import { requireAdminSession } from "@/lib/auth/session";
 import { getPhotoDeleteError } from "@/lib/photos/photo-delete";
+import { deletePhotoFiles } from "@/lib/photos/photo-file-cleanup";
 import { getPhotoRepository, type PhotoAlbumAssignment } from "@/lib/photos/repository";
 import type { PhotoRecord } from "@/types/photo";
 
@@ -224,7 +225,8 @@ export async function deletePhotoAction(
   }
 
   try {
-    await getPhotoRepository().deletePhoto(photoId);
+    const deletedPhoto = await getPhotoRepository().deletePhoto(photoId);
+    await deletePhotoFiles(deletedPhoto ? [deletedPhoto] : []);
     revalidateDeletedPhotoPaths(resolved.deletingPhotos);
 
     return {
@@ -254,7 +256,8 @@ export async function deleteSelectedPhotosAction(
   }
 
   try {
-    await getPhotoRepository().deletePhotos(photoIds);
+    const deletedPhotos = await getPhotoRepository().deletePhotos(photoIds);
+    await deletePhotoFiles(deletedPhotos);
     revalidateDeletedPhotoPaths(resolved.deletingPhotos);
 
     return {

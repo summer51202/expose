@@ -1,10 +1,10 @@
 import Link from "next/link";
 
 import { PhotoStage } from "@/components/gallery/photo-stage";
-import type { GalleryPhoto } from "@/types/photo";
+import type { PublicPhoto } from "@/types/photo";
 
 type PhotoCardProps = {
-  photo: GalleryPhoto;
+  photo: PublicPhoto;
 };
 
 export function PhotoCard({ photo }: PhotoCardProps) {

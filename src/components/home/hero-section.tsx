@@ -4,11 +4,12 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 
 import { siteConfig } from "@/config/site";
+import { getDisplayImageUrl } from "@/lib/photos/display-image";
 import { cn } from "@/lib/utils";
-import type { GalleryPhoto } from "@/types/photo";
+import type { PublicPhoto } from "@/types/photo";
 
 type HeroSectionProps = {
-  photos: GalleryPhoto[];
+  photos: PublicPhoto[];
 };
 
 const sampleGradients = [
@@ -19,7 +20,7 @@ const sampleGradients = [
   "from-indigo-950 via-blue-700 to-sky-300",
 ];
 
-function PhotoBackground({ photo, priority }: { photo: GalleryPhoto; priority?: boolean }) {
+function PhotoBackground({ photo, priority }: { photo: PublicPhoto; priority?: boolean }) {
   if (photo.source === "sample") {
     const gradient = sampleGradients[photo.id % sampleGradients.length];
     return <div className={cn("absolute inset-0 bg-gradient-to-br", gradient)} />;
@@ -27,10 +28,11 @@ function PhotoBackground({ photo, priority }: { photo: GalleryPhoto; priority?: 
 
   return (
     <Image
-      src={photo.mediumUrl}
+      src={getDisplayImageUrl(photo, "large")}
       alt={photo.title}
       fill
       priority={priority}
+      draggable={false}
       className="object-cover"
       sizes="100vw"
       placeholder={photo.blurDataUrl ? "blur" : "empty"}

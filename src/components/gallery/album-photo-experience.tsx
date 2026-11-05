@@ -12,12 +12,12 @@ import {
   resolvePhotoIdParam,
   shouldReplaceAlbumViewQuery,
 } from "@/lib/gallery/album-gallery-url";
-import type { GalleryPhoto } from "@/types/photo";
+import type { PublicPhoto } from "@/types/photo";
 
 type AlbumPhotoExperienceProps = {
   albumName: string;
   albumSlug: string;
-  photos: GalleryPhoto[];
+  photos: PublicPhoto[];
 };
 
 export function AlbumPhotoExperience({

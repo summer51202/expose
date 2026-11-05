@@ -74,68 +74,92 @@ function buildPublicUrl(publicBaseUrl: string, key: string) {
   return `${publicBaseUrl}/${key.replace(/^\/+/, "")}`;
 }
 
+/** Sends an AWS SigV4-signed request for one object in the configured bucket. */
+async function sendSignedObjectRequest(
+  config: R2Config,
+  {
+    method,
+    key,
+    body,
+    extraHeaders = {},
+  }: {
+    method: "PUT" | "DELETE";
+    key: string;
+    body?: Buffer;
+    extraHeaders?: Record<string, string>;
+  },
+) {
+  const now = new Date();
+  const amzDate = formatAmzDate(now);
+  const dateStamp = amzDate.slice(0, 8);
+  const endpointUrl = new URL(config.endpoint);
+  const canonicalUri = `/${config.bucketName}/${encodeKeyPath(key.replace(/^\/+/, ""))}`;
+  const payloadHash = sha256Hex(body ?? "");
+  const headers = new Map<string, string>([
+    ["host", endpointUrl.host],
+    ["x-amz-content-sha256", payloadHash],
+    ["x-amz-date", amzDate],
+  ]);
+
+  for (const [header, value] of Object.entries(extraHeaders)) {
+    headers.set(header.toLowerCase(), value);
+  }
+
+  const signedHeaders = [...headers.keys()].sort().join(";");
+  const canonicalHeaders = [...headers.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([header, value]) => `${header}:${value.trim()}\n`)
+    .join("");
+
+  const canonicalRequest = [
+    method,
+    canonicalUri,
+    "",
+    canonicalHeaders,
+    signedHeaders,
+    payloadHash,
+  ].join("\n");
+
+  const credentialScope = `${dateStamp}/${R2_REGION}/${R2_SERVICE}/aws4_request`;
+  const stringToSign = [
+    "AWS4-HMAC-SHA256",
+    amzDate,
+    credentialScope,
+    sha256Hex(canonicalRequest),
+  ].join("\n");
+  const signature = createHmac("sha256", getSigningKey(config.secretAccessKey, dateStamp))
+    .update(stringToSign)
+    .digest("hex");
+  const authorization = [
+    `AWS4-HMAC-SHA256 Credential=${config.accessKeyId}/${credentialScope}`,
+    `SignedHeaders=${signedHeaders}`,
+    `Signature=${signature}`,
+  ].join(", ");
+
+  const requestHeaders = new Headers();
+  for (const [header, value] of headers.entries()) {
+    requestHeaders.set(header, value);
+  }
+  requestHeaders.set("Authorization", authorization);
+
+  return fetch(new URL(canonicalUri, endpointUrl), {
+    method,
+    headers: requestHeaders,
+    body: body ? new Uint8Array(body) : undefined,
+  });
+}
+
 export const r2StorageDriver: StorageDriver = {
   async putObject({ key, body, contentType, cacheControl }) {
     const config = getR2Config();
-    const now = new Date();
-    const amzDate = formatAmzDate(now);
-    const dateStamp = amzDate.slice(0, 8);
-    const endpointUrl = new URL(config.endpoint);
-    const canonicalUri = `/${config.bucketName}/${encodeKeyPath(key.replace(/^\/+/, ""))}`;
-    const payloadHash = sha256Hex(body);
-    const host = endpointUrl.host;
-    const headers = new Map<string, string>([
-      ["content-type", contentType],
-      ["host", host],
-      ["x-amz-content-sha256", payloadHash],
-      ["x-amz-date", amzDate],
-    ]);
-
-    if (cacheControl) {
-      headers.set("cache-control", cacheControl);
-    }
-
-    const signedHeaders = [...headers.keys()].sort().join(";");
-    const canonicalHeaders = [...headers.entries()]
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([header, value]) => `${header}:${value.trim()}\n`)
-      .join("");
-
-    const canonicalRequest = [
-      "PUT",
-      canonicalUri,
-      "",
-      canonicalHeaders,
-      signedHeaders,
-      payloadHash,
-    ].join("\n");
-
-    const credentialScope = `${dateStamp}/${R2_REGION}/${R2_SERVICE}/aws4_request`;
-    const stringToSign = [
-      "AWS4-HMAC-SHA256",
-      amzDate,
-      credentialScope,
-      sha256Hex(canonicalRequest),
-    ].join("\n");
-    const signature = createHmac("sha256", getSigningKey(config.secretAccessKey, dateStamp))
-      .update(stringToSign)
-      .digest("hex");
-    const authorization = [
-      `AWS4-HMAC-SHA256 Credential=${config.accessKeyId}/${credentialScope}`,
-      `SignedHeaders=${signedHeaders}`,
-      `Signature=${signature}`,
-    ].join(", ");
-
-    const requestHeaders = new Headers();
-    for (const [header, value] of headers.entries()) {
-      requestHeaders.set(header, value);
-    }
-    requestHeaders.set("Authorization", authorization);
-
-    const response = await fetch(new URL(canonicalUri, endpointUrl), {
+    const response = await sendSignedObjectRequest(config, {
       method: "PUT",
-      headers: requestHeaders,
-      body: new Uint8Array(body),
+      key,
+      body,
+      extraHeaders: {
+        "content-type": contentType,
+        ...(cacheControl ? { "cache-control": cacheControl } : {}),
+      },
     });
 
     if (!response.ok) {
@@ -148,5 +172,14 @@ export const r2StorageDriver: StorageDriver = {
       key,
       url: buildPublicUrl(config.publicBaseUrl, key),
     };
+  },
+  async deleteObject(key) {
+    const config = getR2Config();
+    const response = await sendSignedObjectRequest(config, { method: "DELETE", key });
+
+    // S3/R2 return 204 for deletes, including keys that never existed.
+    if (!response.ok && response.status !== 404) {
+      throw new Error(`R2 delete failed for ${key} with ${response.status} ${response.statusText}.`);
+    }
   },
 };

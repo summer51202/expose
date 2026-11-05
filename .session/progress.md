@@ -255,3 +255,45 @@
 1. Deploy, set `SITE_URL`, and test a photo link with Facebook Sharing Debugger and LINE.
 2. Submit `sitemap.xml` in Google Search Console.
 3. Next feature candidate: add a high-resolution (≈2560px) image derivative; hero and photo page currently use the 1200px `medium`.
+
+---
+
+### Session #009 - Large (2560px) Image Derivative (2026-11-05)
+**Role**: Human + Agent (Coding Agent)
+**Goal**: Stop hero / photo page / album playback from upscaling the 1200px `medium` on 2K, 4K and Retina screens.
+
+**Branch decision**: Option (a). `feat/public-image-exposure-reduction` was merged into this branch first (one conflict in `src/lib/photos/queries.ts`: kept Session #008's React `cache()` and mapped results through `toPublicPhoto`). This PR therefore also lands the public photo DTO / casual-save-reduction work.
+
+**Completed**:
+- Upload pipeline renders `large`: fit inside 2560×2560, `withoutEnlargement`, WebP q85. Specs live in `src/lib/uploads/image-derivatives.ts` (`IMAGE_DERIVATIVES`).
+- `Photo.largeUrl` / `largeKey` (migration `20261105000000_photo_large_derivative`), `GalleryPhoto.largeUrl`, `PhotoRecord.largeKey`, both repositories, JSON manifest (pass-through), public DTO exposes `largeUrl` only (no key).
+- `getDisplayImageUrl(photo, "large" | "medium")` in `src/lib/photos/display-image.ts`: large falls back to medium.
+- Hero and album playback (`gallery-image-stage`) use large. `PhotoStage` has `variant` + `sizes` props: detail page passes `variant="large"` and a `sizes` that matches its real column width (`(min-width: 1280px) 812px, (min-width: 1024px) 62vw, 100vw`); grid cards keep `medium` and their old `sizes`.
+- **Storage deletes are new**: `StorageDriver.deleteObject` (local: only under `public/uploads`, traversal refused; R2: signed DELETE, 404 ok). Before this session, deleting a photo only removed the DB row and left all files orphaned. Now `deletePhotoFiles()` (`src/lib/photos/photo-file-cleanup.ts`) removes original/large/medium/thumb from the photo's own `storageProvider`; failures are logged, not thrown.
+- `npm run images:backfill:large` (`scripts/backfill-large-images.mjs`): json/prisma × local/r2, `--dry-run`, idempotent, writes back per photo. Skips photos whose `storageProvider` differs from `STORAGE_BACKEND`. Shared helpers in `scripts/lib/` (`r2-client.mjs`, `script-env.mjs`).
+- `storage:migrate:r2` now carries `large` along when present.
+- Fix for merged branch bug: `PhotoStage` (Server Component) passed `onContextMenu` → `/photos/[source]/[id]` returned 500. Moved into client `ContextMenuGuard`.
+- OG image (`src/lib/seo/og-image.ts`) still uses `medium`; upload limits unchanged.
+
+**Verification**:
+- Unit tests: `node --import tsx --test` on all `src/**/*.test.ts` + `scripts/*.test.ts` → 88/88 (new: display helper, derivative sizing incl. real sharp output 4000×3000→2560×1920, portrait, no-enlarge; storage keys incl. large; local delete guard; backfill planning).
+- Migration: applied all migrations to a temp SQLite DB; `prisma migrate diff` vs schema is empty.
+- Backfill json+local on the 23 local photos: dry-run wrote nothing; real run 23 done; re-run "already had large 23". Backfill prisma+local on the temp DB: processed, wrote `largeUrl`/`largeKey`, re-run skipped; r2 row correctly skipped under local storage. (Local `data/photos.json` and generated files restored afterwards.)
+- Browser (json+local dev server): 1920px viewport → hero `large&w=1920`, detail page `large&w=828` (rendered 812px), playback `large&w=1920`, album grid 3/3 `medium`; photo without large → `medium`; 375px@2x phone hero → `large&w=750`; right-click blocked on detail page.
+- Local delete: original/large/medium/thumb all removed via `getPhotoStorageKeys` + `localStorageDriver.deleteObject`.
+- `.session/verify.ps1 -Feature "large-image"` → ALL CHECKS PASSED (after moving stale April `.next/types/` aside — same class of issue as Session #008).
+
+**Known issues / not verified**:
+- R2 upload/delete/backfill not exercised (no test bucket). R2 DELETE needs the API token to have object delete permission (Object Read & Write).
+- Real admin upload + delete through the UI not clicked (needs admin login); covered by unit tests + direct driver test.
+- Local photos are only 1334px wide, so their `large` equals original size; the 2560 cap is verified by unit tests with synthetic images.
+- next/image re-encodes at its default quality 75 and `priority` is deprecated in Next 16 (use `preload`); both left as-is.
+- `features.json` has no entry for this feature, so it was not changed.
+
+**Deploy (Railway) — required**:
+1. `npx prisma migrate deploy`
+2. `npm run images:backfill:large -- --dry-run`, then `npm run images:backfill:large`; run again to confirm everything is "already had large".
+
+**Next**:
+1. After deploy, check on a 4K/Retina screen that hero requests `…-large.webp` via `/_next/image` and that deleting a test photo removes its 4 objects in R2.
+2. Consider `images.qualities` / per-image `quality` for photography (default 75) and migrating `priority` → `preload`.

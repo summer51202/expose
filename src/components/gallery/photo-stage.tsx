@@ -1,12 +1,21 @@
 import Image from "next/image";
 
+import { ContextMenuGuard } from "@/components/gallery/context-menu-guard";
+import { getDisplayImageUrl, type DisplayImageVariant } from "@/lib/photos/display-image";
 import { cn } from "@/lib/utils";
-import type { GalleryPhoto } from "@/types/photo";
+import type { PublicPhoto } from "@/types/photo";
 
 type PhotoStageProps = {
-  photo: GalleryPhoto;
+  photo: PublicPhoto;
   priority?: boolean;
+  disableContextMenu?: boolean;
+  /** Grid cards stay on `medium`; the photo detail page asks for `large`. */
+  variant?: DisplayImageVariant;
+  /** Rendered width hint for next/image; defaults to the grid card layout. */
+  sizes?: string;
 };
+
+const GRID_CARD_SIZES = "(max-width: 640px) 100vw, (max-width: 1280px) 70vw, 1200px";
 
 const sampleGradients = [
   "from-stone-800 via-amber-700 to-orange-300",
@@ -17,28 +26,39 @@ const sampleGradients = [
   "from-rose-950 via-fuchsia-700 to-pink-300",
 ];
 
-export function PhotoStage({ photo, priority = false }: PhotoStageProps) {
+export function PhotoStage({
+  photo,
+  priority = false,
+  disableContextMenu = false,
+  variant = "medium",
+  sizes = GRID_CARD_SIZES,
+}: PhotoStageProps) {
   const isSample = photo.source === "sample";
   const sampleGradient = sampleGradients[photo.id % sampleGradients.length];
 
   return (
-    <div className="relative w-full overflow-hidden rounded-[1.25rem]" style={{ aspectRatio: `${photo.width} / ${photo.height}` }}>
+    <ContextMenuGuard
+      enabled={disableContextMenu}
+      className="relative w-full overflow-hidden rounded-[1.25rem]"
+      style={{ aspectRatio: `${photo.width} / ${photo.height}` }}
+    >
       {isSample ? (
         <div className={cn("absolute inset-0 bg-gradient-to-br", sampleGradient)}>
           <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(17,12,8,0.68))]" />
         </div>
       ) : (
         <Image
-          src={photo.mediumUrl}
+          src={getDisplayImageUrl(photo, variant)}
           alt={photo.title}
           fill
           priority={priority}
+          draggable={false}
           className="object-cover"
-          sizes="(max-width: 640px) 100vw, (max-width: 1280px) 70vw, 1200px"
+          sizes={sizes}
           placeholder={photo.blurDataUrl ? "blur" : "empty"}
           blurDataURL={photo.blurDataUrl}
         />
       )}
-    </div>
+    </ContextMenuGuard>
   );
 }
