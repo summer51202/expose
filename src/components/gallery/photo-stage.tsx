@@ -1,5 +1,6 @@
 import Image from "next/image";
 
+import { getDisplayImageUrl, type DisplayImageVariant } from "@/lib/photos/display-image";
 import { cn } from "@/lib/utils";
 import type { PublicPhoto } from "@/types/photo";
 
@@ -7,7 +8,13 @@ type PhotoStageProps = {
   photo: PublicPhoto;
   priority?: boolean;
   disableContextMenu?: boolean;
+  /** Grid cards stay on `medium`; the photo detail page asks for `large`. */
+  variant?: DisplayImageVariant;
+  /** Rendered width hint for next/image; defaults to the grid card layout. */
+  sizes?: string;
 };
+
+const GRID_CARD_SIZES = "(max-width: 640px) 100vw, (max-width: 1280px) 70vw, 1200px";
 
 const sampleGradients = [
   "from-stone-800 via-amber-700 to-orange-300",
@@ -22,6 +29,8 @@ export function PhotoStage({
   photo,
   priority = false,
   disableContextMenu = false,
+  variant = "medium",
+  sizes = GRID_CARD_SIZES,
 }: PhotoStageProps) {
   const isSample = photo.source === "sample";
   const sampleGradient = sampleGradients[photo.id % sampleGradients.length];
@@ -38,13 +47,13 @@ export function PhotoStage({
         </div>
       ) : (
         <Image
-          src={photo.mediumUrl}
+          src={getDisplayImageUrl(photo, variant)}
           alt={photo.title}
           fill
           priority={priority}
           draggable={false}
           className="object-cover"
-          sizes="(max-width: 640px) 100vw, (max-width: 1280px) 70vw, 1200px"
+          sizes={sizes}
           placeholder={photo.blurDataUrl ? "blur" : "empty"}
           blurDataURL={photo.blurDataUrl}
         />

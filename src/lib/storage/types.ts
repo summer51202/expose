@@ -10,4 +10,6 @@ export interface StorageDriver {
     contentType: string;
     cacheControl?: string;
   }): Promise<StoredObject>;
+  /** Removes an object. Resolves without error when the object does not exist. */
+  deleteObject(key: string): Promise<void>;
 }

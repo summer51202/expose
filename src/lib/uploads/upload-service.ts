@@ -71,10 +71,16 @@ export async function uploadPhotos({
       buffer: Buffer.from(await file.arrayBuffer()),
     });
     const storageRoot = `uploads/${processed.baseName}`;
-    const [originalAsset, mediumAsset, thumbnailAsset] = await Promise.all([
+    const [originalAsset, largeAsset, mediumAsset, thumbnailAsset] = await Promise.all([
       storageDriver.putObject({
         key: `${storageRoot}-original.webp`,
         body: processed.originalBuffer,
+        contentType: "image/webp",
+        cacheControl: "public, max-age=31536000, immutable",
+      }),
+      storageDriver.putObject({
+        key: `${storageRoot}-large.webp`,
+        body: processed.largeBuffer,
         contentType: "image/webp",
         cacheControl: "public, max-age=31536000, immutable",
       }),
@@ -100,10 +106,12 @@ export async function uploadPhotos({
       width: processed.width,
       height: processed.height,
       originalUrl: originalAsset.url,
+      largeUrl: largeAsset.url,
       mediumUrl: mediumAsset.url,
       thumbnailUrl: thumbnailAsset.url,
       blurDataUrl: processed.blurDataUrl,
       originalKey: originalAsset.key,
+      largeKey: largeAsset.key,
       mediumKey: mediumAsset.key,
       thumbnailKey: thumbnailAsset.key,
       storageProvider,

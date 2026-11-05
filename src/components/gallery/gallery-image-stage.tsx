@@ -1,5 +1,6 @@
 import Image from "next/image";
 
+import { getDisplayImageUrl } from "@/lib/photos/display-image";
 import type { PublicPhoto } from "@/types/photo";
 
 type GalleryImageStageProps = {
@@ -37,7 +38,7 @@ export function GalleryImageStage({
         </div>
       ) : (
         <Image
-          src={photo.mediumUrl}
+          src={getDisplayImageUrl(photo, "large")}
           alt={photo.title}
           fill
           priority={priority}

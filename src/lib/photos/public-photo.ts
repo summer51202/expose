@@ -14,6 +14,7 @@ export function toPublicPhoto(photo: PhotoRecord): PublicPhoto {
     width: photo.width,
     height: photo.height,
     mediumUrl: photo.mediumUrl,
+    largeUrl: photo.largeUrl,
     thumbnailUrl: photo.thumbnailUrl,
     blurDataUrl: photo.blurDataUrl,
     source: photo.source,

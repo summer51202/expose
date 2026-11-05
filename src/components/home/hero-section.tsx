@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 
 import { siteConfig } from "@/config/site";
+import { getDisplayImageUrl } from "@/lib/photos/display-image";
 import { cn } from "@/lib/utils";
 import type { PublicPhoto } from "@/types/photo";
 
@@ -27,7 +28,7 @@ function PhotoBackground({ photo, priority }: { photo: PublicPhoto; priority?: b
 
   return (
     <Image
-      src={photo.mediumUrl}
+      src={getDisplayImageUrl(photo, "large")}
       alt={photo.title}
       fill
       priority={priority}

@@ -32,6 +32,8 @@ model Photo {
   thumbnailKey      String?
   mediumUrl         String
   mediumKey         String?
+  largeUrl          String?
+  largeKey          String?
   blurDataUrl       String?
   storageProvider   String      @default("local")
   width             Int

@@ -133,7 +133,14 @@ export default async function PhotoViewerPage({ params, searchParams }: PhotoVie
 
         {/* Left: photo stage */}
         <div className="flex min-h-[60vh] items-center justify-center overflow-hidden rounded-[1.5rem] bg-black lg:min-h-[85vh]">
-          <PhotoStage photo={photo} priority disableContextMenu />
+          <PhotoStage
+            photo={photo}
+            priority
+            disableContextMenu
+            variant="large"
+            // Left column of the lg:grid-cols-[1.4fr_0.6fr] grid inside max-w-7xl.
+            sizes="(min-width: 1280px) 812px, (min-width: 1024px) 62vw, 100vw"
+          />
         </div>
 
         {/* Right: info column */}

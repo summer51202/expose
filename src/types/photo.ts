@@ -12,6 +12,8 @@
   height: number;
   originalUrl: string;
   mediumUrl: string;
+  /** Up to 2560px derivative for full-screen views; missing on photos uploaded before it existed. */
+  largeUrl?: string;
   thumbnailUrl: string;
   blurDataUrl?: string;
   source: "uploaded" | "sample";
@@ -25,6 +27,7 @@ export type PhotoRecord = GalleryPhoto & {
   albumId?: number | null;
   originalKey?: string;
   mediumKey?: string;
+  largeKey?: string;
   thumbnailKey?: string;
   storageProvider?: "local" | "r2";
 };

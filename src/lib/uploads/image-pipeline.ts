@@ -2,6 +2,7 @@ import sharp from "sharp";
 
 import { extractExifData, type ExifRecord } from "@/lib/photos/exif";
 import { UploadProcessingError } from "@/lib/security/errors";
+import { IMAGE_DERIVATIVES } from "@/lib/uploads/image-derivatives";
 import { validateImageMetadata } from "@/lib/uploads/upload-guards";
 
 type ProcessUploadInput = {
@@ -12,6 +13,7 @@ type ProcessUploadInput = {
 type ProcessUploadResult = {
   baseName: string;
   originalBuffer: Buffer;
+  largeBuffer: Buffer;
   mediumBuffer: Buffer;
   thumbnailBuffer: Buffer;
   width: number;
@@ -58,18 +60,23 @@ export async function processUpload({
   validateImageMetadata({ fileName, width, height });
   const exifData = await extractExifData(buffer);
 
+  const renderDerivative = ({ maxDimension, quality }: { maxDimension: number; quality: number }) =>
+    normalized
+      .clone()
+      .resize({
+        width: maxDimension,
+        height: maxDimension,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .webp({ quality })
+      .toBuffer();
+
   try {
     const originalBuffer = await normalized.clone().webp({ quality: 92 }).toBuffer();
-    const mediumBuffer = await normalized
-      .clone()
-      .resize({ width: 1200, height: 1200, fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 84 })
-      .toBuffer();
-    const thumbnailBuffer = await normalized
-      .clone()
-      .resize({ width: 400, height: 400, fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 76 })
-      .toBuffer();
+    const largeBuffer = await renderDerivative(IMAGE_DERIVATIVES.large);
+    const mediumBuffer = await renderDerivative(IMAGE_DERIVATIVES.medium);
+    const thumbnailBuffer = await renderDerivative(IMAGE_DERIVATIVES.thumbnail);
     const blurBuffer = await normalized
       .clone()
       .resize({ width: 32, height: 32, fit: "inside", withoutEnlargement: true })
@@ -79,6 +86,7 @@ export async function processUpload({
     return {
       baseName,
       originalBuffer,
+      largeBuffer,
       mediumBuffer,
       thumbnailBuffer,
       width,

@@ -10,6 +10,10 @@ export function getStorageBackend(): StorageBackend {
   return process.env.STORAGE_BACKEND === "r2" ? "r2" : "local";
 }
 
+export function getStorageDriverFor(backend: StorageBackend): StorageDriver {
+  return backend === "r2" ? r2StorageDriver : localStorageDriver;
+}
+
 export function getStorageDriver(): StorageDriver {
-  return getStorageBackend() === "r2" ? r2StorageDriver : localStorageDriver;
+  return getStorageDriverFor(getStorageBackend());
 }
