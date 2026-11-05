@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { siteConfig } from "@/config/site";
 import { cn } from "@/lib/utils";
+
+const NAV_LINKS = [
+  { href: "/#albums", label: "Albums" },
+  { href: siteConfig.aboutPath, label: "About" },
+] as const;
 
 type SiteHeaderProps = {
   theme?: "light" | "dark";
@@ -43,20 +49,23 @@ export function SiteHeader({ theme = "light" }: SiteHeaderProps) {
           Expose
         </Link>
 
-        <nav className="flex items-center gap-6">
-          <Link
-            href="/#albums"
-            className={cn(
-              "text-sm transition-colors",
-              isDark
-                ? "text-white/70 hover:text-white"
-                : scrolled
-                  ? "text-stone-600 hover:text-stone-900"
-                  : "text-stone-700 hover:text-stone-900",
-            )}
-          >
-            Albums
-          </Link>
+        <nav aria-label="Main" className="flex items-center gap-5 sm:gap-6">
+          {NAV_LINKS.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={cn(
+                "whitespace-nowrap text-sm transition-colors",
+                isDark
+                  ? "text-white/70 hover:text-white"
+                  : scrolled
+                    ? "text-stone-600 hover:text-stone-900"
+                    : "text-stone-700 hover:text-stone-900",
+              )}
+            >
+              {link.label}
+            </Link>
+          ))}
         </nav>
       </div>
     </header>
