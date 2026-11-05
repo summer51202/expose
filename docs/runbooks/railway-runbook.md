@@ -85,17 +85,18 @@ Notes:
 - Every production variable must be added in Railway
 - `AUTH_SECRET` is required for session/cookie signing
 
-### 4. Set the Start Command
+### 4. Start Command (set in `railway.json`)
 
-Recommended start command:
+The start command lives in `railway.json` (config as code), which overrides the dashboard setting:
 
 ```bash
-npx prisma migrate deploy && npm run start
+npx prisma migrate deploy && exec node scripts/start.mjs
 ```
 
 Why:
 - The volume is available at runtime, not build time
 - Prisma migrations should run after the service starts with the volume mounted
+- `scripts/start.mjs` runs `next start` and exits 0 when Railway stops the old container with SIGTERM during a redeploy. With `npm run start`, Next's exit code 143 and npm's "signal SIGTERM" error made every redeploy show "Deployment crashed". Real crashes still exit non-zero.
 
 ---
 

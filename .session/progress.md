@@ -387,3 +387,31 @@
 
 **Next**:
 1. Run the manual DevTools checks above and on a real phone after deploy.
+
+---
+
+### Session #012 - Railway Graceful Shutdown (2026-11-05)
+**Role**: Human + Agent (Coding Agent)
+**Goal**: Stop Railway's Activity feed from showing "Deployment crashed" on every redeploy.
+
+**Diagnosis** (from `railway logs`):
+- On each redeploy Railway sends SIGTERM to the old container. The start command was `npx prisma migrate deploy && npm run start`; npm logged `npm error signal SIGTERM` and exited non-zero, so Railway reported a crash (e.g. 17:25:44, old #12 container while #13 went live). The site was not down; the new container was Ready 2s later.
+- Next 16 itself also exits **143** on SIGTERM (`start-server.js`: 128 + signal), so only removing npm would not be enough.
+- The earlier "crashed" (~16:38) lines up with `[railway-ssh] command session ended (exit 1, 33m50s)`, the first `images:backfill:large` run that had 1 failure (the script exits 1 by design). That container never restarted.
+
+**Completed**:
+- `railway.json` (config as code, overrides the dashboard): `npx prisma migrate deploy && exec node scripts/start.mjs`. Migrations stay in the start command, because the volume is only mounted at runtime.
+- `scripts/start.mjs`: spawns `next start`, forwards SIGTERM/SIGINT, exits 0 when the shutdown was requested; unrequested exits keep their code. `resolveExitCode` is unit-tested (`scripts/start.test.ts`).
+- `docs/runbooks/railway-runbook.md` start-command section updated.
+
+**Verification**:
+- `node --import tsx --test scripts/start.test.ts` → 3/3.
+- `.session/verify.ps1 -Feature "railway-graceful-shutdown"` → ALL CHECKS PASSED.
+- Smoke test: `node scripts/start.mjs` with the verify build on port 3011 → home and photo page 200.
+
+**Not verified**:
+- The real SIGTERM path. Windows cannot deliver a graceful SIGTERM to a child process, so this is only checkable on Railway: after the next redeploy, the old container's log should end with `[start] next stopped after shutdown request (code 143); exiting 0` and Activity should not show "Deployment crashed".
+
+**Next**:
+1. Merge, then watch the following redeploy in Railway Activity.
+2. If Railway still flags it, check that `railway.json` was picked up (Service → Settings → Deploy shows "managed by railway.json").
