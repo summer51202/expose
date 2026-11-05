@@ -47,3 +47,14 @@ test("toPublicPhotos maps every record through the public boundary", () => {
   assert.equal("originalKey" in result[0], false);
   assert.equal(result[0].id, fullPhoto.id);
 });
+
+test("toPublicPhoto keeps largeUrl for full-screen views but drops largeKey", () => {
+  const result = toPublicPhoto({
+    ...fullPhoto,
+    largeUrl: "https://cdn.example/photos/large.webp",
+    largeKey: "public/large.webp",
+  });
+
+  assert.equal(result.largeUrl, "https://cdn.example/photos/large.webp");
+  assert.equal("largeKey" in result, false);
+});
