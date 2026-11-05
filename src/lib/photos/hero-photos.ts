@@ -72,3 +72,21 @@ export function selectHeroPhotos<T extends HeroCandidate>(
 
   return selected;
 }
+
+/**
+ * Index of the photo after `current` in carousel order, wrapping around and
+ * skipping entries `isSkipped` rejects (e.g. images that failed to load).
+ * Returns null when no other photo is available.
+ */
+export function nextHeroIndex(
+  count: number,
+  current: number,
+  isSkipped: (index: number) => boolean = () => false,
+): number | null {
+  for (let step = 1; step < count; step++) {
+    const index = (current + step) % count;
+    if (!isSkipped(index)) return index;
+  }
+
+  return null;
+}

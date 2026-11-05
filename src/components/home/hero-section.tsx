@@ -8,6 +8,7 @@ import type { FocusEvent, PointerEvent } from "react";
 import { siteConfig } from "@/config/site";
 import { buildPhotoDetailHref } from "@/lib/gallery/album-gallery-url";
 import { getDisplayImageUrl } from "@/lib/photos/display-image";
+import { nextHeroIndex } from "@/lib/photos/hero-photos";
 import { cn } from "@/lib/utils";
 import type { PublicPhoto } from "@/types/photo";
 
@@ -76,11 +77,35 @@ type PhotoLayerProps = {
   isIncoming: boolean;
   fading: boolean;
   onLoad: (key: string) => void;
+  onError: (key: string) => void;
 };
 
-function PhotoLayer({ photo, isInitial, isIncoming, fading, onLoad }: PhotoLayerProps) {
+function PhotoLayer({ photo, isInitial, isIncoming, fading, onLoad, onError }: PhotoLayerProps) {
   const key = photoKey(photo);
   const visible = !isIncoming || fading;
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  // Readiness comes from the <img> itself rather than next/image's onLoad:
+  // next/image can call onLoad for an <img> that is `complete` but has no pixels
+  // yet, and then dedupes the real load event for the same src.
+  useEffect(() => {
+    const img = imgRef.current;
+    if (!img) return;
+
+    const check = () => {
+      if (img.complete && img.naturalWidth > 0) onLoad(key);
+    };
+
+    const fail = () => onError(key);
+
+    check();
+    img.addEventListener("load", check);
+    img.addEventListener("error", fail);
+    return () => {
+      img.removeEventListener("load", check);
+      img.removeEventListener("error", fail);
+    };
+  }, [key, onLoad, onError]);
 
   return (
     <div
@@ -117,7 +142,7 @@ function PhotoLayer({ photo, isInitial, isIncoming, fading, onLoad }: PhotoLayer
           sizes="100vw"
           placeholder={isInitial && photo.blurDataUrl ? "blur" : "empty"}
           blurDataURL={isInitial ? photo.blurDataUrl : undefined}
-          onLoad={() => onLoad(key)}
+          ref={imgRef}
         />
       )}
     </div>
@@ -131,6 +156,8 @@ export function HeroSection({ photos }: HeroSectionProps) {
   const [current, setCurrent] = useState(0);
   const [fading, setFading] = useState(false);
   const [loaded, setLoaded] = useState<ReadonlySet<string>>(() => new Set());
+  // Photos whose image failed to load are skipped instead of stalling the carousel.
+  const [failed, setFailed] = useState<ReadonlySet<string>>(() => new Set());
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
 
@@ -141,7 +168,9 @@ export function HeroSection({ photos }: HeroSectionProps) {
 
   const currentIndex = current < count ? current : 0;
   const currentPhoto = count > 0 ? photos[currentIndex] : null;
-  const nextIndex = autoplay ? (currentIndex + 1) % count : null;
+  const nextIndex = autoplay
+    ? nextHeroIndex(count, currentIndex, (index) => failed.has(photoKey(photos[index])))
+    : null;
   const nextPhoto = nextIndex === null ? null : photos[nextIndex];
   const nextKey = nextPhoto ? photoKey(nextPhoto) : null;
   const nextReady = nextPhoto
@@ -186,7 +215,10 @@ export function HeroSection({ photos }: HeroSectionProps) {
     const timer = window.setTimeout(() => {
       const oldCurrentKey = photoKey(photos[currentIndex]);
       const newCurrentKey = photoKey(photos[nextIndex]);
-      const newNextKey = photoKey(photos[(nextIndex + 1) % count]);
+      const newNextIndex = nextHeroIndex(count, nextIndex, (index) =>
+        failed.has(photoKey(photos[index])),
+      );
+      const newNextKey = newNextIndex === null ? null : photoKey(photos[newNextIndex]);
 
       setLoaded((previous) => {
         // Keep only layers that stay mounted; a remounted layer reports onLoad again.
@@ -200,7 +232,7 @@ export function HeroSection({ photos }: HeroSectionProps) {
     }, FADE_MS + FADE_SETTLE_MS);
 
     return () => window.clearTimeout(timer);
-  }, [fading, currentIndex, nextIndex, count, photos]);
+  }, [fading, currentIndex, nextIndex, count, photos, failed]);
 
   const handleLayerLoad = useCallback((key: string) => {
     setLoaded((previous) => {
@@ -214,6 +246,15 @@ export function HeroSection({ photos }: HeroSectionProps) {
       dueRef.current = false;
       setFading(true);
     }
+  }, []);
+
+  const handleLayerError = useCallback((key: string) => {
+    setFailed((previous) => {
+      if (previous.has(key)) return previous;
+      const updated = new Set(previous);
+      updated.add(key);
+      return updated;
+    });
   }, []);
 
   function handlePointerEnter(event: PointerEvent<HTMLElement>) {
@@ -248,6 +289,7 @@ export function HeroSection({ photos }: HeroSectionProps) {
             isIncoming={false}
             fading={fading}
             onLoad={handleLayerLoad}
+            onError={handleLayerError}
           />
         ) : null}
         {nextPhoto && nextPhoto !== currentPhoto ? (
@@ -258,6 +300,7 @@ export function HeroSection({ photos }: HeroSectionProps) {
             isIncoming
             fading={fading}
             onLoad={handleLayerLoad}
+            onError={handleLayerError}
           />
         ) : null}
       </div>

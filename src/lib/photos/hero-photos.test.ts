@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { isLandscapePhoto, selectHeroPhotos } from "./hero-photos";
+import { isLandscapePhoto, nextHeroIndex, selectHeroPhotos } from "./hero-photos";
 
 type P = { id: number; width: number; height: number; createdAt: string };
 
@@ -69,4 +69,15 @@ test("selectHeroPhotos does not mutate its input and keeps order on equal timest
 
   assert.deepEqual(ids(selectHeroPhotos(photos)), [3, 1, 2]);
   assert.deepEqual(ids(photos), before);
+});
+
+test("nextHeroIndex wraps around and skips rejected indexes", () => {
+  assert.equal(nextHeroIndex(4, 0), 1);
+  assert.equal(nextHeroIndex(4, 3), 0);
+  assert.equal(nextHeroIndex(4, 1, (i) => i === 2), 3);
+  assert.equal(nextHeroIndex(4, 2, (i) => i === 3 || i === 0), 1);
+  // Only the current photo is usable, or there is nothing else.
+  assert.equal(nextHeroIndex(3, 1, (i) => i !== 1), null);
+  assert.equal(nextHeroIndex(1, 0), null);
+  assert.equal(nextHeroIndex(0, 0), null);
 });
