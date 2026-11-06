@@ -489,7 +489,7 @@
   - Only `1774002399125` featured: hero → `[…399125, 1774594710321, …373023, …358279, …345456, …339119]`, `/about` → `[…399125]`.
   - None featured: hero = the Session #011 list exactly, `/about` = the original newest 6. Unmarking removed `featuredAt` from the JSON.
   - The dev server crashed once (Windows exit 0xC0000409, after 5 min, while the hidden Browser pane had a stuck request). The action calls took 14–357 ms; it restarted cleanly. Not investigated further.
-- `.session/verify.ps1 -Feature "featured-photos"` → see below.
+- `.session/verify.ps1 -Feature "featured-photos"` → ALL CHECKS PASSED (lint, tsc, build).
 - **Not verified**: how the admin page looks (the Browser pane was hidden all session, so there are no screenshots); the Prisma backend through the UI (only through the repository script).
 
 **Deploy**: Railway's start command already runs `npx prisma migrate deploy`, which applies the new migration on the next deploy. Existing photos start as not featured, so the site looks the same until the owner marks photos.
