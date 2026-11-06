@@ -415,3 +415,51 @@
 **Next**:
 1. Merge, then watch the following redeploy in Railway Activity.
 2. If Railway still flags it, check that `railway.json` was picked up (Service → Settings → Deploy shows "managed by railway.json").
+
+---
+
+### Session #013 - About / Contact page and site footer (2026-11-05)
+**Role**: Human + Agent (Coding Agent)
+**Goal**: Add an About page with a contact section, an About link in the header, and a footer on every public page.
+**Branch**: `feat/about-contact` (from master `0f008a0`)
+**Session number**: The brief called this #012, but PR #14 (Railway shutdown) already used #012 in this log, so this is #013.
+
+**Completed**:
+- `src/config/site.ts`: new `about` (heading, `bio[]` paragraphs, `portrait` = `{kind:"photo", photoId}` | `{kind:"static", src, width, height}` | `null`, `services[]`, `featuredPhotoIds[]`) and `contact` (`email`, `intro`, `social[]` Instagram/Facebook/Threads), plus `aboutPath` / `contactPath`.
+- `src/lib/about/about-content.ts` (pure, 6 tests): `getVisibleSocialLinks` (only non-empty http(s) URLs; `javascript:` is dropped), `isUsableEmail`, `buildMailtoHref`, `selectFeaturedPhotos` (configured ids in order, else the newest 6), `buildPersonJsonLd`, `serializeJsonLd` (escapes `<` as the Next.js JSON-LD guide recommends, plus U+2028/2029).
+- `/about` (`src/app/(browse)/about/page.tsx`, Server Component, `force-dynamic`): eyebrow + name + bio, optional portrait, optional services, up to 6 featured photo thumbnails linking to `/photos/uploaded/<id>` (uploaded photos only, with the right-click guard), and a `#contact` Panel (`scroll-mt-24` under the fixed header) with a `mailto:` link and labelled social links. When there is no email and no social link it says "Contact details coming soon."
+- SEO: static `metadata` (title "About", description = first non-TODO bio paragraph or a generated line, canonical `/about`, `openGraph` = `baseOpenGraph` + `type: "profile"`, twitter). Its own `about/opengraph-image.ts` (portrait if set, else the newest upload), because a page-level `openGraph` drops the image inherited from the root. JSON-LD `Person` (name, url, description, image only when a portrait is set, email, sameAs). `/about` added to `sitemap.ts`.
+- CSP: `script-src` already includes `'unsafe-inline'`, and `application/ld+json` is not executed anyway, so no CSP change was needed.
+- `SiteHeader`: nav is a `NAV_LINKS` array (Albums, About) with `whitespace-nowrap` and `gap-5 sm:gap-6`.
+- `SiteFooter` (`src/components/layout/site-footer.tsx`, Server Component, light/dark): `© {year} {photographerName}. All rights reserved.`, About and Contact links, social icons (icon only, `aria-label`). The year is computed at server render. Used in `(browse)/layout.tsx` (light) and `photos/[source]/[id]/layout.tsx` (dark). Admin has no footer.
+- `SocialLinks` (`social-links.tsx`): inline SVG icons, `target="_blank" rel="noopener noreferrer"`, returns `null` when no link is visible.
+- `.gitignore`: `/.next-claude-dev/`, `/data/analytics-daily-*.json`.
+- Bug fixed during testing: `<Link href="#contact">` on `/about#contact` produced `#contact#contact`. The in-page "Get in touch" button is now a plain `<a>`.
+
+**Verification**:
+- Unit tests: all `src/**/*.test.ts` + `scripts/*.test.ts` → 126/126 (new: about-content 6).
+- `.session/verify.ps1 -Feature "about-contact"` → ALL CHECKS PASSED.
+- Browser / curl on a json+local dev server, **port 3005** (`dev-json-local` on 3004 was held by another chat; a temporary launch config was added and removed afterwards):
+  - `/about` head: title `About · Expose`, description, canonical `/about`, og:title / description / url / site_name / type=profile, og:image + twitter:image → `/about/opengraph-image-…` 200 image/jpeg 1200×630.
+  - With test values filled in temporarily (portrait photo id, services, email, Instagram only; all reverted): contact block has `mailto:hello@example.test` and Instagram (`_blank`, `noopener noreferrer`); Facebook/Threads (empty) not rendered in the contact block or the footer; footer has About, Contact and the Instagram icon. With the real placeholder config there are no social `<a>` tags at all.
+  - JSON-LD pasted into validator.schema.org (code snippet): one Person, 0 errors, 0 warnings.
+  - Console on `/about`, the home page and a photo page: no CSP violations, no hydration warnings. The CSP header is present on `/about`.
+  - Header About link + footer: `/`, `/albums/<slug>`, `/photos/uploaded/<id>` (dark footer classes) and `/about` all 200 with both; `/admin/login` has neither.
+  - 375×812: header links Expose / Albums / About on one row (top 18px, About ends at x=355), no horizontal scroll.
+  - `/sitemap.xml` has `<loc>…/about</loc>`.
+- **Not verified**: the actual scroll position for `/about#contact`. The session's window was not open, so the Browser pane stayed hidden and `window.scrollTo` had no effect there (same as #010). `#contact` exists and has `scroll-margin-top: 96px`. Check by hand.
+
+**Content update (same PR)**: the user filled in the bio and contact intro (Chinese). Email `summer51202@gmail.com`; Instagram `https://www.instagram.com/summer51202/` (the `?cplk=` share-tracking param was dropped); Facebook `https://www.facebook.com/li.guang.ting.265568` (the `/share/1CWkym3Mk4/` link 302-redirects there; the `rdid` param was dropped); Threads `https://www.threads.com/@summer51202`. Checked on the dev server: the contact block and footer show all of them with `_blank` + `noopener noreferrer`, JSON-LD `sameAs` lists all three, the meta description is the first bio line, and the console has no errors.
+
+**Known issues / not done**:
+- Still empty: `portrait: null` (so JSON-LD has no `image`), `services: []`, `featuredPhotoIds: []` (falls back to the newest 6 uploads).
+- `<html lang="en">` while the About text is now Chinese; decide on the site language later (carry-over from #008).
+- JSON-LD `image` is only set when a portrait is configured (a person's image should be the person, not a random photo).
+- The header link on the transparent hero uses the same colours as the existing Albums link (`text-stone-700`). A dark hero photo can make both hard to read; this was not changed.
+- Rich Results Test (Google) was not run; Person is not a rich-result type, so the schema.org validator was used.
+- `features.json` has no entry for this feature; it was not changed.
+
+**Next**:
+1. Optionally set a portrait and featured ids, then check `/about#contact` scrolling on a real browser and phone.
+2. After deploy: share `/about` in LINE / Facebook Debugger to check the preview.
+3. Carry-overs: `images.qualities`, admin "featured" flag for the hero.

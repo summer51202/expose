@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 
+import { siteConfig } from "@/config/site";
 import { getAlbums } from "@/lib/albums/queries";
 import { getPhotoRepository } from "@/lib/photos/repository";
 import { buildAlbumPath, buildPhotoPath } from "@/lib/seo/metadata";
@@ -27,6 +28,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 1,
   };
 
+  const about: MetadataRoute.Sitemap[number] = {
+    url: toAbsoluteUrl(siteConfig.aboutPath, siteUrl),
+    changeFrequency: "monthly",
+    priority: 0.5,
+  };
+
   const albumEntries: MetadataRoute.Sitemap = albums
     .filter((album) => album.photoCount > 0)
     .map((album) => ({
@@ -46,5 +53,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     images: photo.mediumUrl ? [toAbsoluteUrl(photo.mediumUrl, siteUrl)] : undefined,
   }));
 
-  return [home, ...albumEntries, ...photoEntries];
+  return [home, about, ...albumEntries, ...photoEntries];
 }

@@ -57,3 +57,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# dev-server output (dev-json-local dist dir and JSON-backend analytics rollups)
+/.next-claude-dev/
+/data/analytics-daily-*.json

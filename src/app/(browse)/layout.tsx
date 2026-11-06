@@ -1,3 +1,4 @@
+import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 
 export default function BrowseLayout({ children }: { children: React.ReactNode }) {
@@ -5,6 +6,7 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
     <div className="flex min-h-full flex-col">
       <SiteHeader theme="light" />
       {children}
+      <SiteFooter theme="light" />
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 
 export default function PhotoDetailLayout({ children }: { children: React.ReactNode }) {
@@ -5,6 +6,7 @@ export default function PhotoDetailLayout({ children }: { children: React.ReactN
     <div data-theme="dark" className="flex min-h-full flex-col bg-background text-foreground">
       <SiteHeader theme="dark" />
       {children}
+      <SiteFooter theme="dark" />
     </div>
   );
 }
