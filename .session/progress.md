@@ -537,3 +537,46 @@
 **Next**:
 1. Future start-command / service changes: edit `.railway/railway.ts`, `railway config plan`, then `railway config apply` (see runbook section 4).
 2. Optional: GitHub Action `railwayapp/config` to apply pinned plans on merge.
+
+---
+
+### Session #016 - Security dependency upgrade: next, sharp, transitive deps (2026-11-06)
+**Role**: Agent (Coding Agent). Not a `features.json` feature; `features.json` not changed.
+**Branch**: `chore/security-deps-upgrade` (from master `daed0a9`)
+
+**npm audit --omit=dev**:
+- Before: 6 (1 critical, 4 high, 1 moderate): next 16.2.0 (critical, Server Components DoS + RCE in `use cache` + proxy bypass), sharp 0.34.5 (high, libvips / libheif / librsvg CVEs), postcss (high, nested in next), nanoid (high), source-map-js (high), baseline-browser-mapping (moderate).
+- After: **0 vulnerabilities**.
+- Full `npm audit` (incl. dev) still shows 8 moderate + 1 low, all dev-only: esbuild (via tsx) and minimatch (via typescript-eslint inside eslint-config-next; the only fix is `--force`). Not shipped to production; left for a later bump.
+
+**Completed**:
+- `next` 16.2.0 → 16.4.5 (exact pin kept), `eslint-config-next` 16.2.0 → 16.4.5, `sharp` ^0.34.5 → ^0.35.5 (next 16.4.5 also depends on sharp 0.35.5, now deduped). `npm audit fix` (no `--force`) for nanoid 3.3.20, source-map-js 1.2.2, baseline-browser-mapping 2.11.35, postcss 8.5.23.
+- Next 16.2 → 16.4: diffed the bundled docs of 16.2.0 (from `npm pack`) against 16.4.5. Nothing in metadata, opengraph-image, sitemap/robots, `images`, `headers()` or `serverActions.bodySizeLimit` affects this app. Notes: `headers` in next.config may now be sync (ours stays async, fine); `serverActions.allowedOrigins` docs now spell out that the Origin check uses `x-forwarded-host` (Railway forwards it; uploads worked before and nothing changed); opengraph-image docs now say the default export should return a `Response` (ours already do).
+- sharp 0.35 breaking changes (Node >= 20.9.0, no install script, `limitInputChannels` default 5, removed `failOnError` / `paletteBitDepth` / old `sharpen` props, `format.jp2k` → `jp2`): none of the removed APIs are used. **One real break**: the ESM types no longer have the `sharp.Sharp` / `sharp.Metadata` namespace, so `next build` failed type check in `image-pipeline.ts`. Fixed with `import sharp, { type Metadata, type Sharp } from "sharp"`.
+- Railway: Railpack 0.43 builds on **Node 22.23.4** ("previous installed version (22)"; no `engines` / `.nvmrc`), which meets sharp's >= 20.9.0. The lockfile has `@img/sharp-linux-x64@0.35.5` + `@img/sharp-libvips-linux-x64`. No `engines` field added (it could make Railpack pick a different Node).
+- **Bug fix found while testing (same on 0.34.5 and 0.35.5)**: `sharp(buf).rotate().metadata()` returns the *input* size, so photos with an EXIF orientation tag (most phone portraits) were stored with width/height swapped, even though the files were rotated correctly. Now uses `metadata.autoOrient`. New test in `image-derivatives.test.ts`. Existing photos keep their stored size (no backfill done).
+- eslint-config-next 16.4.5 brings eslint-plugin-react-hooks 7.0.1 → 7.1.1, whose `set-state-in-effect` rule failed lint in `album-photo-experience.tsx` (sync `mode` from `?view=`) and `album-gallery-mode.tsx` (reset index on `photos` / `initialPhotoId` change). Both moved to React's "adjust state while rendering" pattern (same behavior, one less render).
+- `eslint.config.mjs` ignores `.claude/worktrees/**` (local agent worktrees; 6345 lint problems came from there, the same reason `.worktrees/**` is ignored).
+
+**Verification**:
+- `.session/verify.ps1 -Feature "security-deps"` → ALL CHECKS PASSED (lint, tsc, build). Lint has 2 old warnings (unused `_prevState` / `_prev`).
+- `node --import tsx --test` on all `src/**/*.test.ts` + `scripts/*.test.ts` → 136/136.
+- `dev-json-local` (port 3004), temporary `.env.local` with generated test admin credentials (deleted afterwards). Uploaded a generated JPEG: 3000×2000 pixels stored sideways with EXIF orientation 6 (displays as a 2000×3000 portrait with a red "TOP" band) and Fujifilm X-T5 / XF35mm / 1/250 / f2.8 / ISO 400 EXIF:
+  - record width/height 2000×3000; original 2000×3000, large 1707×2560, medium 800×1200, thumb 267×400, all WebP, red band at the top in every file.
+  - `exifData` has make, model, lens, focal length, aperture, exposure, ISO, takenAt; the photo page shows them.
+  - `/photos/uploaded/<id>/opengraph-image` → 200 `image/jpeg` 1200×630, correct orientation (attention crop kept the text).
+  - `/`, album page, `?view=gallery&photo=`, photo page, `/about`, `/sitemap.xml` (28 urls), `/robots.txt` → 200. All four og:image URLs from page meta → 200 JPEG (route-group ones have a hash suffix, e.g. `/about/opengraph-image-3027i9`, which is normal).
+  - Album view: Gallery View → grid, next/prev (counter + `?photo=` follow), Grid View, and client `router.push` of `?view=` / `?photo=` all update the view. No console errors, no server errors.
+  - `curl -I /`: Content-Security-Policy, X-Frame-Options DENY, X-Content-Type-Options, Referrer-Policy, Permissions-Policy present.
+  - Test upload files deleted, `data/photos.json` restored with git.
+- Build warning (not an error): Turbopack "Dynamic filesystem access causes tracing of the whole project" for `path.join(process.cwd(), "public")` in `src/lib/seo/og-image.ts`. Not checked whether 16.2 printed it too.
+
+**Known issues / not done**:
+- Existing EXIF-rotated photos in production may still have swapped width/height (fix only covers new uploads). A backfill script could re-read `original` sizes.
+- Dev-only moderate advisories (esbuild, minimatch) remain.
+- The og-image tracing warning above (could add `/*turbopackIgnore: true*/` or scope the path).
+
+**Next**:
+1. After merge, Railway rebuilds: check Deploy / Build Logs for sharp install errors (e.g. missing linux-x64 binary), then upload one test photo (ideally a phone portrait) and check it on production, including its `opengraph-image`.
+2. Optional: backfill width/height for existing EXIF-rotated photos.
+3. Optional: bump tsx / typescript-eslint when fixes land for the dev-only advisories.
