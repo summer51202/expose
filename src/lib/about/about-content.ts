@@ -1,4 +1,5 @@
 import type { SocialLink } from "@/config/site";
+import { sortFeaturedPhotos } from "../photos/featured-photos";
 
 /** Only http(s) links with a non-empty URL are shown; anything else is dropped. */
 export function getVisibleSocialLinks(links: readonly SocialLink[]): SocialLink[] {
@@ -31,32 +32,16 @@ export function buildMailtoHref(email: string) {
 }
 
 /**
- * Featured photos for /about: configured ids in the configured order (unknown ids skipped),
- * otherwise the first `limit` photos of the list (already newest first).
+ * "Selected work" on /about: photos marked featured in the admin, most recently
+ * featured first; when none are marked, the first `limit` photos of the list
+ * (already newest first).
  */
-export function selectFeaturedPhotos<T extends { id: number }>(
+export function selectFeaturedPhotos<T extends { id: number; featured?: boolean; featuredAt?: string }>(
   photos: readonly T[],
-  featuredIds: readonly number[],
   limit = 6,
 ): T[] {
-  if (featuredIds.length > 0) {
-    const byId = new Map(photos.map((photo) => [photo.id, photo]));
-    const picked: T[] = [];
-    const seen = new Set<number>();
-
-    for (const id of featuredIds) {
-      const photo = byId.get(id);
-
-      if (photo && !seen.has(id)) {
-        picked.push(photo);
-        seen.add(id);
-      }
-    }
-
-    return picked.slice(0, limit);
-  }
-
-  return photos.slice(0, limit);
+  const featured = sortFeaturedPhotos(photos);
+  return (featured.length > 0 ? featured : photos).slice(0, limit);
 }
 
 type PersonJsonLdInput = {

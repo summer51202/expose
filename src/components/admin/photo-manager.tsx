@@ -9,7 +9,9 @@ import {
   deleteSelectedPhotosAction,
   movePhotoToAlbumAction,
   moveSelectedPhotosToAlbumAction,
+  setPhotoFeaturedAction,
   type PhotoDeleteState,
+  type PhotoFeaturedState,
   type PhotoMoveState,
 } from "@/app/admin/photo-actions";
 import { Button } from "@/components/ui/button";
@@ -18,6 +20,7 @@ import type { PhotoRecord } from "@/types/photo";
 
 const initialMoveState: PhotoMoveState = {};
 const initialDeleteState: PhotoDeleteState = {};
+const initialFeaturedState: PhotoFeaturedState = {};
 
 type AlbumOption = {
   id: number;
@@ -54,6 +57,11 @@ function PhotoMoveRow({
     deletePhotoAction.bind(null, photo.id),
     initialDeleteState,
   );
+  const [featuredState, featuredFormAction, featuredPending] = useActionState(
+    setPhotoFeaturedAction.bind(null, photo.id),
+    initialFeaturedState,
+  );
+  const isFeatured = photo.featured === true;
 
   useEffect(() => {
     if (state.resetKey) {
@@ -95,7 +103,14 @@ function PhotoMoveRow({
       <div className="grid gap-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="font-medium text-stone-900">{photo.title}</h3>
+            <h3 className="flex flex-wrap items-center gap-2 font-medium text-stone-900">
+              {photo.title}
+              {isFeatured ? (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                  ★ 精選
+                </span>
+              ) : null}
+            </h3>
             <p className="mt-1 text-sm text-stone-600">
               目前相簿：{photo.albumName ?? "尚未分類"}
             </p>
@@ -127,6 +142,18 @@ function PhotoMoveRow({
               {pending ? "移動中..." : "移動"}
             </Button>
           </form>
+          <form action={featuredFormAction}>
+            <input type="hidden" name="featured" value={isFeatured ? "false" : "true"} />
+            <Button
+              type="submit"
+              variant="secondary"
+              aria-pressed={isFeatured}
+              className={isFeatured ? "border-amber-300 text-amber-800 hover:bg-amber-50" : undefined}
+              disabled={featuredPending}
+            >
+              {featuredPending ? "更新中..." : isFeatured ? "★ 取消精選" : "☆ 設為精選"}
+            </Button>
+          </form>
           <form
             action={deleteFormAction}
             onSubmit={(event) => {
@@ -148,6 +175,7 @@ function PhotoMoveRow({
 
         {state.error ? <p className="text-sm text-rose-700">{state.error}</p> : null}
         {state.success ? <p className="text-sm text-emerald-700">{state.success}</p> : null}
+        {featuredState.error ? <p className="text-sm text-rose-700">{featuredState.error}</p> : null}
         {deleteState.error ? <p className="text-sm text-rose-700">{deleteState.error}</p> : null}
         {deleteState.success ? (
           <p className="text-sm text-emerald-700">{deleteState.success}</p>
@@ -178,6 +206,10 @@ export function PhotoManager({ photos, albums }: PhotoManagerProps) {
       return photos;
     }
 
+    if (filterAlbumId === "featured") {
+      return photos.filter((photo) => photo.featured === true);
+    }
+
     if (filterAlbumId === "unassigned") {
       return photos.filter((photo) => !photo.albumId);
     }
@@ -186,6 +218,7 @@ export function PhotoManager({ photos, albums }: PhotoManagerProps) {
     return photos.filter((photo) => photo.albumId === albumId);
   }, [filterAlbumId, photos]);
 
+  const featuredCount = photos.filter((photo) => photo.featured === true).length;
   const visiblePhotoIds = filteredPhotos.map((photo) => photo.id);
   const visibleSelectedCount = visiblePhotoIds.filter((id) =>
     visibleSelectedPhotoIds.includes(id),
@@ -257,6 +290,7 @@ export function PhotoManager({ photos, albums }: PhotoManagerProps) {
             onChange={(event) => setFilterAlbumId(event.currentTarget.value)}
           >
             <option value="all">全部照片</option>
+            <option value="featured">精選（{featuredCount}）</option>
             <option value="unassigned">尚未分類</option>
             {albums.map((album) => (
               <option key={album.id} value={album.id}>

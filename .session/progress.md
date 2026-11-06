@@ -463,3 +463,44 @@
 1. Optionally set a portrait and featured ids, then check `/about#contact` scrolling on a real browser and phone.
 2. After deploy: share `/about` in LINE / Facebook Debugger to check the preview.
 3. Carry-overs: `images.qualities`, admin "featured" flag for the hero.
+
+---
+
+### Session #014 - Admin "featured" photos (2026-11-06)
+**Role**: Agent (Coding Agent, started from another session)
+**Goal**: Let the owner mark photos as featured in the admin, instead of editing `featuredPhotoIds` in `src/config/site.ts` and redeploying. Featured photos drive `/about` "Selected work" and the home hero (Session #011 follow-up 1).
+**Branch**: `feat/featured-photos` (from master `8c6af5d`)
+
+**Completed**:
+- Data: `Photo.featured Boolean @default(false)` + `Photo.featuredAt DateTime?` (migration `20261106000000_photo_featured`, two `ALTER TABLE ... ADD COLUMN`, safe on existing rows). `GalleryPhoto` (so also `PhotoRecord` / `PublicPhoto`) has optional `featured` / `featuredAt`; `toPublicPhoto` copies them (`featured` is always a boolean there). JSON photos without the field count as not featured; no data migration needed.
+- `src/lib/photos/featured-photos.ts` (pure, 4 tests): `isFeaturedPhoto`, `applyFeatured(photo, featured, now)` (marking an already featured photo keeps its `featuredAt`; unmarking removes it), `sortFeaturedPhotos` (featured only, most recently featured first, undated last, stable).
+- Repository: `setPhotoFeatured(photoId, featured)` on both backends, returns the updated record or `null`. Prisma: `updateMany where {id, featured:false}` when marking (so a repeat submit does not re-stamp `featuredAt`), `featuredAt: null` when unmarking; `mapPhotoCreateInput` writes the flag. JSON: `applyFeatured` + `replaceManifestPhotos` (rewrites the manifest newest-first, the same as moving a photo).
+- Admin: `setPhotoFeaturedAction(photoId, prev, formData)` in `src/app/admin/photo-actions.ts`: `requireAdminSession()`, validates the id and a hidden `featured=true|false` field, revalidates `/`, `/about`, `/admin/photos`. `PhotoManager` rows have a "☆ 設為精選" / "★ 取消精選" button (`aria-pressed`), a "★ 精選" badge next to the title, and the album filter has a "精選（n）" option. Errors are shown; success is shown by the badge (no extra message).
+- `/about` Selected work: `selectFeaturedPhotos(photos, limit = 6)` = featured photos (any orientation), most recently featured first; when none are marked, the newest 6 uploads (as before).
+- **Decision: `siteConfig.about.featuredPhotoIds` removed** (type + value). It was empty in production, and two sources of truth would make "why is this photo here?" hard to answer. A comment in `site.ts` points to `/admin/photos`.
+- Home hero `selectHeroPhotos` (decision): when there are **at least 2 featured landscape photos** (ratio >= 1.2), the hero shows only those (most recently featured first, max 6). Otherwise the old rule runs, with any featured landscape photo moved to the front, then newest landscape, then the "top up to 2" rule. Featured portraits never get into the featured-only hero. Also replaced `b - a` sort comparators with explicit compares (an invalid date gave `-Infinity - -Infinity = NaN`).
+- `/admin/photos` intro text explains what featured does.
+
+**Verification**:
+- Unit tests: all `src/**/*.test.ts` + `scripts/*.test.ts` → 135/135 (new: featured-photos 4, hero +4, about-content featured 3 replacing 2).
+- Prisma path on a throwaway SQLite DB (`prisma migrate deploy` applied all 6 migrations, then the real repository via tsx): new photo `featured=false`; mark → `true` + timestamp; mark again → same timestamp; unmark → `false`, no `featuredAt`; unknown id → `null`.
+- Browser + curl on `dev-json-local` (port 3004, worktree with a temporary `.env.local` holding test admin credentials, a junction to the main checkout's `public/uploads`, and `.claude/launch.json`; all removed afterwards, `data/photos.json` restored with git):
+  - Marked `1774002399125` (landscape), `1774242896163` (landscape), `1774594342586` (portrait) from `/admin/photos`: badge + `aria-pressed=true` after each click, filter shows "精選（n）", `data/photos.json` got `featured` + `featuredAt`. `/about` → `[…342586, …896163, …399125]` (newest featured first). Hero props → `[…896163, …399125]` only.
+  - Only `1774002399125` featured: hero → `[…399125, 1774594710321, …373023, …358279, …345456, …339119]`, `/about` → `[…399125]`.
+  - None featured: hero = the Session #011 list exactly, `/about` = the original newest 6. Unmarking removed `featuredAt` from the JSON.
+  - The dev server crashed once (Windows exit 0xC0000409, after 5 min, while the hidden Browser pane had a stuck request). The action calls took 14–357 ms; it restarted cleanly. Not investigated further.
+- `.session/verify.ps1 -Feature "featured-photos"` → ALL CHECKS PASSED (lint, tsc, build).
+- **Not verified**: how the admin page looks (the Browser pane was hidden all session, so there are no screenshots); the Prisma backend through the UI (only through the repository script).
+
+**Deploy**: Railway's start command already runs `npx prisma migrate deploy`, which applies the new migration on the next deploy. Existing photos start as not featured, so the site looks the same until the owner marks photos.
+
+**Known issues / not done**:
+- `scripts/migrate-json-to-prisma.mjs` does not copy `featured` / `featuredAt` (it also never copied `largeUrl`); only matters if the JSON → Prisma import is run again.
+- The section heading ("Selected work" / "A few favourites") is still hard-coded in the About page.
+- No manual ordering of featured photos beyond "most recently featured first" (unmark + mark again moves a photo to the front).
+- `features.json` has no entry for this feature; not changed.
+
+**Next**:
+1. After deploy, mark 2–6 landscape photos in `/admin/photos` and check the hero and `/about` on production.
+2. Look at the admin row layout on a real screen (button row now has 移動 / 精選 / 刪除).
+3. Carry-overs: `images.qualities`, site language (`<html lang>`), portrait / services for `/about`.

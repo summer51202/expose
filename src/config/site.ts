@@ -25,10 +25,7 @@ export type AboutConfig = {
   portrait: PortraitConfig;
   /** Shooting types / services. Empty array hides the section. */
   services: string[];
-  /**
-   * Uploaded photo ids to feature (3–6). Empty array falls back to the newest photos.
-   */
-  featuredPhotoIds: number[];
+  // "Selected work" photos are picked in /admin/photos (featured flag), not here.
 };
 
 export type ContactConfig = {
@@ -46,7 +43,6 @@ const about: AboutConfig = {
   ],
   portrait: null,
   services: [],
-  featuredPhotoIds: [],
 };
 
 const contact: ContactConfig = {
