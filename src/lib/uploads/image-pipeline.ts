@@ -55,8 +55,11 @@ export async function processUpload({
     );
   }
 
-  const width = metadata.width ?? 0;
-  const height = metadata.height ?? 0;
+  // metadata() describes the input, not the pipeline, so `.rotate()` does not
+  // swap width/height. `autoOrient` holds the size after applying EXIF
+  // orientation, which is what the derivatives (and the gallery layout) use.
+  const width = metadata.autoOrient?.width ?? metadata.width ?? 0;
+  const height = metadata.autoOrient?.height ?? metadata.height ?? 0;
   validateImageMetadata({ fileName, width, height });
   const exifData = await extractExifData(buffer);
 

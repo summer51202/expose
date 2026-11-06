@@ -51,6 +51,22 @@ test("processUpload limits the long edge of portrait photos", async () => {
   assert.deepEqual(await sizeOf(result.largeBuffer), { width: 1536, height: 2560, format: "webp" });
 });
 
+test("processUpload reports the displayed size of EXIF-rotated photos", async () => {
+  // 3000×2000 pixels stored sideways; EXIF orientation 6 displays it as 2000×3000.
+  const buffer = await sharp({
+    create: { width: 3000, height: 2000, channels: 3, background: { r: 120, g: 90, b: 60 } },
+  })
+    .jpeg()
+    .withMetadata({ orientation: 6 })
+    .toBuffer();
+  const result = await processUpload({ fileName: "rotated.jpg", buffer });
+
+  assert.equal(result.width, 2000);
+  assert.equal(result.height, 3000);
+  assert.deepEqual(await sizeOf(result.mediumBuffer), { width: 800, height: 1200, format: "webp" });
+  assert.deepEqual(await sizeOf(result.originalBuffer), { width: 2000, height: 3000, format: "webp" });
+});
+
 test("processUpload does not enlarge small photos into large", async () => {
   const result = await processUpload({ fileName: "small.jpg", buffer: await createImage(1000, 800) });
 
