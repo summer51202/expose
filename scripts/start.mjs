@@ -1,4 +1,4 @@
-// Production entrypoint used by railway.json: runs `next start` and turns a
+// Production entrypoint (Railway start command, see .railway/railway.ts): runs `next start` and turns a
 // platform-requested shutdown into a clean exit.
 //
 // Next 16 exits with 143 (128 + SIGTERM) after a graceful shutdown, and `npm start`
