@@ -26,6 +26,10 @@ export const metadata: Metadata = {
     title: defaultTitle,
     description: siteConfig.description,
   },
+  // Google Search Console ownership check (HTML tag method).
+  verification: process.env.GOOGLE_SITE_VERIFICATION?.trim()
+    ? { google: process.env.GOOGLE_SITE_VERIFICATION.trim() }
+    : undefined,
 };
 
 export default function RootLayout({
