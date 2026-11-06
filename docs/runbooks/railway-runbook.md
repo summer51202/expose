@@ -85,13 +85,26 @@ Notes:
 - Every production variable must be added in Railway
 - `AUTH_SECRET` is required for session/cookie signing
 
-### 4. Start Command (set in `railway.json`)
+### 4. Start Command (set in `.railway/railway.ts`)
 
-The start command lives in `railway.json` (config as code), which overrides the dashboard setting:
+The service settings (start command, GitHub source, volume mount, variable names) are described in `.railway/railway.ts` (Railway infrastructure as code, replaces the old `railway.json`):
 
 ```bash
 npx prisma migrate deploy && exec node scripts/start.mjs
 ```
+
+Railway does **not** read `.railway/` during deploys. A change in that file only reaches Railway when you run:
+
+```powershell
+railway config plan    # read-only, shows the diff
+railway config apply   # writes the change to the service settings
+```
+
+- Always read the plan first. It must not show deleted variables, a removed GitHub source or a detached volume. Variables are `preserve()` in the file, so secret values are never committed.
+- Windows: the `railway` npm SDK runs `$_ --version` (or `railway --version`) to check the CLI and fails with "requires Railway CLI 5.42.1 or newer" when it finds only npm's shim. Point it at the real exe first: `$env:_ = "$env:APPDATA
+pm
+ode_modules@railwaycliinailway.exe"` (PowerShell) or `_=<that path> railway config plan` (Git Bash).
+- If the dashboard is changed by hand, run `railway config pull --force` and commit the result, so the file does not undo it on the next apply.
 
 Why:
 - The volume is available at runtime, not build time
