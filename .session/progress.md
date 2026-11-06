@@ -449,14 +449,17 @@
   - `/sitemap.xml` has `<loc>…/about</loc>`.
 - **Not verified**: the actual scroll position for `/about#contact`. The session's window was not open, so the Browser pane stayed hidden and `window.scrollTo` had no effect there (same as #010). `#contact` exists and has `scroll-margin-top: 96px`. Check by hand.
 
+**Content update (same PR)**: the user filled in the bio and contact intro (Chinese). Email `summer51202@gmail.com`; Instagram `https://www.instagram.com/summer51202/` (the `?cplk=` share-tracking param was dropped); Facebook `https://www.facebook.com/li.guang.ting.265568` (the `/share/1CWkym3Mk4/` link 302-redirects there; the `rdid` param was dropped); Threads `https://www.threads.com/@summer51202`. Checked on the dev server: the contact block and footer show all of them with `_blank` + `noopener noreferrer`, JSON-LD `sameAs` lists all three, the meta description is the first bio line, and the console has no errors.
+
 **Known issues / not done**:
-- **Content is placeholder**: `about.bio` and `contact.intro` start with `TODO:`. `email` is empty and all three social URLs are empty, so they are hidden. `portrait: null`, `services: []`, `featuredPhotoIds: []` (falls back to the newest 6 uploads). Fill these in `src/config/site.ts`. The meta description skips paragraphs starting with `TODO`.
+- Still empty: `portrait: null` (so JSON-LD has no `image`), `services: []`, `featuredPhotoIds: []` (falls back to the newest 6 uploads).
+- `<html lang="en">` while the About text is now Chinese; decide on the site language later (carry-over from #008).
 - JSON-LD `image` is only set when a portrait is configured (a person's image should be the person, not a random photo).
 - The header link on the transparent hero uses the same colours as the existing Albums link (`text-stone-700`). A dark hero photo can make both hard to read; this was not changed.
 - Rich Results Test (Google) was not run; Person is not a rich-result type, so the schema.org validator was used.
 - `features.json` has no entry for this feature; it was not changed.
 
 **Next**:
-1. Fill in the real bio, email, social URLs, portrait and featured ids, then check `/about#contact` scrolling on a real browser and phone.
+1. Optionally set a portrait and featured ids, then check `/about#contact` scrolling on a real browser and phone.
 2. After deploy: share `/about` in LINE / Facebook Debugger to check the preview.
 3. Carry-overs: `images.qualities`, admin "featured" flag for the hero.

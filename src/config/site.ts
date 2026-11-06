@@ -41,8 +41,8 @@ export type ContactConfig = {
 const about: AboutConfig = {
   heading: "About",
   bio: [
-    "TODO: 自我介紹第一段 — 你是誰、從什麼時候開始拍照。",
-    "TODO: 自我介紹第二段 — 偏好的題材、風格或器材。",
+    "截時光的一角，鑲上註解。",
+    "拍攝我愛的我眼中的世界。",
   ],
   portrait: null,
   services: [],
@@ -50,12 +50,12 @@ const about: AboutConfig = {
 };
 
 const contact: ContactConfig = {
-  email: "",
-  intro: "TODO: 聯絡說明 — 例如「合作、拍攝邀約或只是想打聲招呼，歡迎來信。」",
+  email: "summer51202@gmail.com",
+  intro: "合作、拍攝邀約或只是想打聲招呼，歡迎來信。",
   social: [
-    { platform: "instagram", label: "Instagram", url: "" },
-    { platform: "facebook", label: "Facebook", url: "" },
-    { platform: "threads", label: "Threads", url: "" },
+    { platform: "instagram", label: "Instagram", url: "https://www.instagram.com/summer51202/" },
+    { platform: "facebook", label: "Facebook", url: "https://www.facebook.com/li.guang.ting.265568" },
+    { platform: "threads", label: "Threads", url: "https://www.threads.com/@summer51202" },
   ],
 };
 
