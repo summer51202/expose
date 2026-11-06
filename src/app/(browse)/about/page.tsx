@@ -83,10 +83,7 @@ async function resolvePortrait(portrait: PortraitConfig): Promise<ResolvedPortra
 
 export default async function AboutPage() {
   const [portrait, photos] = await Promise.all([resolvePortrait(about.portrait), getGalleryPhotos()]);
-  const featured = selectFeaturedPhotos(
-    photos.filter((photo) => photo.source === "uploaded"),
-    about.featuredPhotoIds,
-  );
+  const featured = selectFeaturedPhotos(photos.filter((photo) => photo.source === "uploaded"));
   const email = isUsableEmail(contact.email) ? contact.email.trim() : null;
   const socialLinks = getVisibleSocialLinks(contact.social);
   const bio = about.bio.filter((paragraph) => paragraph.trim());

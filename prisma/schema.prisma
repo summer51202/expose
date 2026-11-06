@@ -41,6 +41,8 @@ model Photo {
   exifData          Json?
   takenAt           DateTime?
   sortOrder         Int         @default(0)
+  featured          Boolean     @default(false)
+  featuredAt        DateTime?
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
   album             Album?      @relation(fields: [albumId], references: [id], onDelete: SetNull)

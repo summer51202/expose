@@ -1,7 +1,11 @@
+import { sortFeaturedPhotos } from "./featured-photos";
+
 type HeroCandidate = {
   width: number;
   height: number;
   createdAt: string;
+  featured?: boolean;
+  featuredAt?: string;
 };
 
 export type SelectHeroPhotosOptions = {
@@ -34,10 +38,15 @@ function createdAtTime(photo: HeroCandidate) {
 }
 
 /**
- * Picks the photos for the full-bleed home hero: newest landscape photos first,
- * because portrait shots get heavily cropped by `object-cover` on a wide screen.
- * When fewer than `minCount` landscape photos exist, the newest remaining photos
- * fill the gap so the carousel still has something to rotate through.
+ * Picks the photos for the full-bleed home hero.
+ *
+ * 1. Featured landscape photos (most recently featured first). When there are at
+ *    least `minCount` of them, the hero shows only those.
+ * 2. Otherwise: landscape photos, featured ones first, then newest first, because
+ *    portrait shots get heavily cropped by `object-cover` on a wide screen.
+ * 3. When fewer than `minCount` landscape photos exist, the newest remaining photos
+ *    fill the gap so the carousel still has something to rotate through.
+ *
  * Pure: never mutates the input.
  */
 export function selectHeroPhotos<T extends HeroCandidate>(
@@ -52,9 +61,24 @@ export function selectHeroPhotos<T extends HeroCandidate>(
     return [];
   }
 
+  const isLandscape = (photo: T) => isLandscapePhoto(photo, minAspectRatio);
+  const featuredLandscape = sortFeaturedPhotos(photos).filter(isLandscape);
+
+  if (featuredLandscape.length >= minCount) {
+    return featuredLandscape.slice(0, limit);
+  }
+
   // Stable sort: equal timestamps keep the repository order.
-  const newestFirst = [...photos].sort((a, b) => createdAtTime(b) - createdAtTime(a));
-  const landscape = newestFirst.filter((photo) => isLandscapePhoto(photo, minAspectRatio));
+  const newestFirst = [...photos].sort((a, b) => {
+    const left = createdAtTime(a);
+    const right = createdAtTime(b);
+    return left === right ? 0 : left < right ? 1 : -1;
+  });
+  const featuredSet = new Set<T>(featuredLandscape);
+  const landscape = [
+    ...featuredLandscape,
+    ...newestFirst.filter((photo) => !featuredSet.has(photo) && isLandscape(photo)),
+  ];
   const selected = landscape.slice(0, limit);
 
   if (selected.length >= minCount) {

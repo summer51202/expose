@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Photo" ADD COLUMN "featured" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Photo" ADD COLUMN "featuredAt" DATETIME;

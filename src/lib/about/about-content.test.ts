@@ -35,24 +35,44 @@ test("isUsableEmail accepts plain addresses and rejects blanks or junk", () => {
   assert.equal(buildMailtoHref(" me@example.com "), "mailto:me@example.com");
 });
 
-test("selectFeaturedPhotos keeps configured order, skips unknown and duplicate ids", () => {
-  const photos = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }];
+test("selectFeaturedPhotos uses featured photos, most recently featured first", () => {
+  const photos = [
+    { id: 1 },
+    { id: 2, featured: true, featuredAt: "2026-11-01T00:00:00.000Z" },
+    { id: 3, featured: false, featuredAt: "2026-11-09T00:00:00.000Z" },
+    { id: 4, featured: true, featuredAt: "2026-11-05T00:00:00.000Z" },
+    { id: 5, featured: true },
+  ];
 
   assert.deepEqual(
-    selectFeaturedPhotos(photos, [3, 99, 1, 3]).map((photo) => photo.id),
-    [3, 1],
+    selectFeaturedPhotos(photos).map((photo) => photo.id),
+    [4, 2, 5],
   );
+});
+
+test("selectFeaturedPhotos caps featured photos at the limit", () => {
+  const photos = Array.from({ length: 8 }, (_, index) => ({
+    id: index + 1,
+    featured: true,
+    featuredAt: `2026-11-0${index + 1}T00:00:00.000Z`,
+  }));
+
+  assert.deepEqual(
+    selectFeaturedPhotos(photos).map((photo) => photo.id),
+    [8, 7, 6, 5, 4, 3],
+  );
+  assert.equal(selectFeaturedPhotos(photos, 2).length, 2);
 });
 
 test("selectFeaturedPhotos falls back to the first photos and respects the limit", () => {
   const photos = Array.from({ length: 10 }, (_, index) => ({ id: index + 1 }));
 
   assert.deepEqual(
-    selectFeaturedPhotos(photos, []).map((photo) => photo.id),
+    selectFeaturedPhotos(photos).map((photo) => photo.id),
     [1, 2, 3, 4, 5, 6],
   );
-  assert.equal(selectFeaturedPhotos(photos, [], 3).length, 3);
-  assert.deepEqual(selectFeaturedPhotos([], []), []);
+  assert.equal(selectFeaturedPhotos(photos, 3).length, 3);
+  assert.deepEqual(selectFeaturedPhotos([]), []);
 });
 
 test("buildPersonJsonLd omits empty optional fields", () => {

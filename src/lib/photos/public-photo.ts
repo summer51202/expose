@@ -17,6 +17,8 @@ export function toPublicPhoto(photo: PhotoRecord): PublicPhoto {
     largeUrl: photo.largeUrl,
     thumbnailUrl: photo.thumbnailUrl,
     blurDataUrl: photo.blurDataUrl,
+    featured: photo.featured === true,
+    featuredAt: photo.featured === true ? photo.featuredAt : undefined,
     source: photo.source,
     albumId: photo.albumId,
   };

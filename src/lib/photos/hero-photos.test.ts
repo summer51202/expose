@@ -3,13 +3,24 @@ import assert from "node:assert/strict";
 
 import { isLandscapePhoto, nextHeroIndex, selectHeroPhotos } from "./hero-photos";
 
-type P = { id: number; width: number; height: number; createdAt: string };
+type P = {
+  id: number;
+  width: number;
+  height: number;
+  createdAt: string;
+  featured?: boolean;
+  featuredAt?: string;
+};
 
 function photo(id: number, width: number, height: number, day: number): P {
   return { id, width, height, createdAt: `2026-01-${String(day).padStart(2, "0")}T00:00:00.000Z` };
 }
 
 const ids = (list: P[]) => list.map((p) => p.id);
+
+function featured(p: P, day: number): P {
+  return { ...p, featured: true, featuredAt: `2026-02-${String(day).padStart(2, "0")}T00:00:00.000Z` };
+}
 
 test("isLandscapePhoto uses width / height >= 1.2 and rejects bad sizes", () => {
   assert.equal(isLandscapePhoto({ width: 1200, height: 1000 }), true);
@@ -69,6 +80,48 @@ test("selectHeroPhotos does not mutate its input and keeps order on equal timest
 
   assert.deepEqual(ids(selectHeroPhotos(photos)), [3, 1, 2]);
   assert.deepEqual(ids(photos), before);
+});
+
+test("selectHeroPhotos shows only featured landscape photos when there are at least 2", () => {
+  const photos = [
+    photo(1, 1600, 1000, 1),
+    featured(photo(2, 1600, 1000, 2), 1),
+    photo(3, 1600, 1000, 3),
+    featured(photo(4, 1600, 1000, 4), 9),
+    // Featured but portrait: never in the featured-only hero.
+    featured(photo(5, 900, 1400, 5), 10),
+  ];
+
+  assert.deepEqual(ids(selectHeroPhotos(photos)), [4, 2]);
+});
+
+test("selectHeroPhotos caps featured landscape photos at the limit", () => {
+  const photos = Array.from({ length: 8 }, (_, i) => featured(photo(i + 1, 1600, 1000, i + 1), 20 - i));
+
+  assert.deepEqual(ids(selectHeroPhotos(photos)), [1, 2, 3, 4, 5, 6]);
+  assert.deepEqual(ids(selectHeroPhotos(photos, { limit: 2 })), [1, 2]);
+});
+
+test("selectHeroPhotos puts a single featured landscape photo first, then newest landscape", () => {
+  const photos = [
+    featured(photo(1, 1600, 1000, 1), 1),
+    photo(2, 1600, 1000, 2),
+    photo(3, 900, 1400, 3),
+    photo(4, 1600, 1000, 4),
+  ];
+
+  assert.deepEqual(ids(selectHeroPhotos(photos)), [1, 4, 2]);
+});
+
+test("selectHeroPhotos ignores featured portrait photos when picking the featured set", () => {
+  const photos = [
+    featured(photo(1, 900, 1400, 1), 1),
+    featured(photo(2, 900, 1400, 2), 2),
+    photo(3, 1600, 1000, 3),
+    photo(4, 1600, 1000, 4),
+  ];
+
+  assert.deepEqual(ids(selectHeroPhotos(photos)), [4, 3]);
 });
 
 test("nextHeroIndex wraps around and skips rejected indexes", () => {

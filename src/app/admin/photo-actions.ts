@@ -21,6 +21,11 @@ export type PhotoDeleteState = {
   resetKey?: string;
 };
 
+export type PhotoFeaturedState = {
+  error?: string;
+  success?: string;
+};
+
 function parseAlbumId(formData: FormData) {
   const albumId = Number(String(formData.get("albumId") || "").trim());
 
@@ -267,6 +272,46 @@ export async function deleteSelectedPhotosAction(
   } catch {
     return {
       error: "批次刪除照片失敗，請稍後再試一次。",
+    };
+  }
+}
+
+export async function setPhotoFeaturedAction(
+  photoId: number,
+  _prevState: PhotoFeaturedState,
+  formData: FormData,
+): Promise<PhotoFeaturedState> {
+  await requireAdminSession();
+
+  const value = String(formData.get("featured") ?? "");
+
+  if (!Number.isSafeInteger(photoId) || photoId <= 0 || (value !== "true" && value !== "false")) {
+    return {
+      error: "精選設定無效，請重新整理後再試一次。",
+    };
+  }
+
+  const featured = value === "true";
+
+  try {
+    const photo = await getPhotoRepository().setPhotoFeatured(photoId, featured);
+
+    if (!photo) {
+      return {
+        error: "照片不存在，請重新整理後再試一次。",
+      };
+    }
+
+    revalidatePath("/");
+    revalidatePath("/about");
+    revalidatePath("/admin/photos");
+
+    return {
+      success: featured ? "已設為精選。" : "已取消精選。",
+    };
+  } catch {
+    return {
+      error: "更新精選失敗，請稍後再試一次。",
     };
   }
 }

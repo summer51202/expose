@@ -6,6 +6,7 @@ import {
   saveManifestPhotos,
 } from "@/lib/photos/manifest-repository";
 import { getDataBackend } from "@/lib/data/backend";
+import { applyFeatured } from "@/lib/photos/featured-photos";
 import { fromPrismaBigInt, toPrismaBigInt } from "@/lib/prisma-id";
 import { prisma } from "@/lib/prisma";
 import type { PhotoRecord } from "@/types/photo";
@@ -45,6 +46,8 @@ function mapPhotoRecordFromPrisma(photo: PrismaPhotoWithAlbum): PhotoRecord {
     largeUrl: photo.largeUrl ?? undefined,
     thumbnailUrl: photo.thumbnailUrl,
     blurDataUrl: photo.blurDataUrl ?? undefined,
+    featured: photo.featured,
+    featuredAt: photo.featured ? photo.featuredAt?.toISOString() : undefined,
     originalKey: photo.originalKey ?? undefined,
     mediumKey: photo.mediumKey ?? undefined,
     largeKey: photo.largeKey ?? undefined,
@@ -83,6 +86,9 @@ function mapPhotoCreateInput(record: PhotoRecord) {
     largeKey: record.largeKey ?? null,
     thumbnailKey: record.thumbnailKey ?? null,
     blurDataUrl: record.blurDataUrl ?? null,
+    featured: record.featured === true,
+    featuredAt:
+      record.featured === true && record.featuredAt ? new Date(record.featuredAt) : null,
     storageProvider: record.storageProvider ?? "local",
     width: record.width,
     height: record.height,
@@ -97,6 +103,8 @@ export interface PhotoRepository {
   findUploadedPhotoById(photoId: number): Promise<PhotoRecord | null>;
   savePhotos(records: PhotoRecord[]): Promise<void>;
   movePhotoToAlbum(photoId: number, assignment: PhotoAlbumAssignment): Promise<void>;
+  /** Returns the updated photo, or null when it does not exist. */
+  setPhotoFeatured(photoId: number, featured: boolean): Promise<PhotoRecord | null>;
   movePhotosToAlbum(photoIds: number[], assignment: PhotoAlbumAssignment): Promise<void>;
   deletePhoto(photoId: number): Promise<PhotoRecord | null>;
   deletePhotos(photoIds: number[]): Promise<PhotoRecord[]>;
@@ -122,6 +130,21 @@ const jsonPhotoRepository: PhotoRepository = {
         photo.id === photoId ? assignPhotoAlbum(photo, assignment) : photo,
       ),
     );
+  },
+  async setPhotoFeatured(photoId, featured) {
+    const photos = await listManifestPhotos();
+    const target = photos.find((photo) => photo.id === photoId);
+
+    if (!target) {
+      return null;
+    }
+
+    const updated = applyFeatured(target, featured, new Date());
+    await replaceManifestPhotos(
+      photos.map((photo) => (photo.id === photoId ? updated : photo)),
+    );
+
+    return updated;
   },
   async movePhotosToAlbum(photoIds, assignment) {
     const targetIds = new Set(photoIds);
@@ -225,6 +248,24 @@ const prismaPhotoRepository: PhotoRepository = {
         albumId: toPrismaBigInt(assignment.albumId),
       },
     });
+  },
+  async setPhotoFeatured(photoId, featured) {
+    const id = toPrismaBigInt(photoId);
+
+    if (featured) {
+      // Only stamp featuredAt on a real change, so a repeated submit keeps the order.
+      await prisma.photo.updateMany({
+        where: { id, featured: false },
+        data: { featured: true, featuredAt: new Date() },
+      });
+    } else {
+      await prisma.photo.updateMany({
+        where: { id },
+        data: { featured: false, featuredAt: null },
+      });
+    }
+
+    return this.findUploadedPhotoById(photoId);
   },
   async movePhotosToAlbum(photoIds, assignment) {
     if (photoIds.length === 0) {

@@ -16,6 +16,10 @@
   largeUrl?: string;
   thumbnailUrl: string;
   blurDataUrl?: string;
+  /** Picked by the owner in /admin/photos for the About page and home hero. Missing = false. */
+  featured?: boolean;
+  /** When the photo was last marked featured (ISO). Newest-featured comes first. */
+  featuredAt?: string;
   source: "uploaded" | "sample";
 };
 
