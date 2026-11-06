@@ -1,4 +1,4 @@
-import sharp from "sharp";
+import sharp, { type Metadata, type Sharp } from "sharp";
 
 import { extractExifData, type ExifRecord } from "@/lib/photos/exif";
 import { UploadProcessingError } from "@/lib/security/errors";
@@ -43,8 +43,8 @@ export async function processUpload({
 }: ProcessUploadInput): Promise<ProcessUploadResult> {
   const baseName = createBaseName(fileName);
 
-  let normalized: sharp.Sharp;
-  let metadata: sharp.Metadata;
+  let normalized: Sharp;
+  let metadata: Metadata;
 
   try {
     normalized = sharp(buffer).rotate();

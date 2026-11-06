@@ -32,6 +32,14 @@ export function AlbumPhotoExperience({
   const requestedMode = resolveAlbumViewMode(searchParams.get("view"));
   const requestedPhotoId = resolvePhotoIdParam(searchParams.get("photo"));
   const [mode, setMode] = useState<AlbumViewMode>(requestedMode);
+  const [syncedRequestedMode, setSyncedRequestedMode] = useState(requestedMode);
+
+  // Follow ?view= changes (back/forward, links) by adjusting state while
+  // rendering instead of in an effect: https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  if (requestedMode !== syncedRequestedMode) {
+    setSyncedRequestedMode(requestedMode);
+    setMode(requestedMode);
+  }
 
   const replaceAlbumState = useCallback(
     (nextMode: AlbumViewMode, photoId?: number | null) => {
@@ -44,10 +52,6 @@ export function AlbumPhotoExperience({
     },
     [pathname, router, search],
   );
-
-  useEffect(() => {
-    setMode(requestedMode);
-  }, [requestedMode]);
 
   useEffect(() => {
     if (mode !== "grid" || !requestedPhotoId) {

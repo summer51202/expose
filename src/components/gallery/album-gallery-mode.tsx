@@ -52,6 +52,14 @@ export function AlbumGalleryMode({
 }: AlbumGalleryModeProps) {
   const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(() => getInitialIndex(photos, initialPhotoId));
+  const [syncedInputs, setSyncedInputs] = useState({ photos, initialPhotoId });
+
+  // Reset the position when the photo list or requested photo changes, while
+  // rendering instead of in an effect: https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  if (syncedInputs.photos !== photos || syncedInputs.initialPhotoId !== initialPhotoId) {
+    setSyncedInputs({ photos, initialPhotoId });
+    setCurrentIndex(getInitialIndex(photos, initialPhotoId));
+  }
   const [isPlaying, setIsPlaying] = useState(false);
   const [delayMs, setDelayMs] = useState(getSavedDelay);
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -83,10 +91,6 @@ export function AlbumGalleryMode({
       router.push(buildPhotoDetailHref(currentPhoto, { album: albumSlug, view: "gallery" }));
     });
   }, [albumSlug, currentPhoto, router]);
-
-  useEffect(() => {
-    setCurrentIndex(getInitialIndex(photos, initialPhotoId));
-  }, [initialPhotoId, photos]);
 
   useEffect(() => {
     if (currentPhoto) {
