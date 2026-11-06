@@ -523,12 +523,17 @@
 - `railway.json` deleted; `scripts/start.mjs` comment and `docs/runbooks/railway-runbook.md` section 4 updated (plan before apply, what a bad plan looks like, the Windows `_` fix, pull after dashboard edits).
 - Local folder linked with `railway link` (project expose / production / service expose).
 
-**Not done (needs the user)**: `railway config apply` on production was blocked by the agent's permission check. Until the apply runs, **do not merge** this branch: without `railway.json`, deploys would use the dashboard's old `npm run start` (migrations still run, but the "Deployment crashed" on redeploy from #012 comes back). Steps for the user are in the PR description.
+**Applied to production (same session, user asked)**:
+- `railway config migrate --service expose --apply --force` → "Cleared Railway Config File on the linked service" (it also overwrote `.railway/railway.ts` with the start-command-only file; restored with `git checkout`).
+- `railway config plan --out <file>` (0 add / 1 change / 0 destroy) → `railway config apply --plan <file> --yes` → "Applied pinned Railway configuration." A new plan then says "already up to date". All 13 variables are still there.
+- The apply triggered a redeploy (b31ed09d, SUCCESS: "No pending migrations to apply", Next ready). The old container's log ends with `[start] next stopped after shutdown request (code 143); exiting 0` (Session #012 fix confirmed on Railway).
+- PR #17 merged (`53c95f0`); deploy afbdccdd SUCCESS, `/` and `/about` 200.
+- The "Config as Code is deprecated" line still shows in local `railway logs` output: it is the local CLI (stderr) finding `D:Projectexposeailway.json` in the main checkout, which is on an older master. It goes away after `git pull` there.
 
 **Verification**:
 - `railway config plan` with the final file → 1 change, 0 destroy (see above).
 - `.session/verify.ps1 -Feature "railway-iac"` → ALL CHECKS PASSED (lint, tsc incl. .railway/railway.ts, build).
 
 **Next**:
-1. User: clear the Config File setting, plan, apply (PR steps), then merge and check the deploy log shows `Applying migration`/`All migrations have been successfully applied` and `next start` via `scripts/start.mjs`.
+1. Future start-command / service changes: edit `.railway/railway.ts`, `railway config plan`, then `railway config apply` (see runbook section 4).
 2. Optional: GitHub Action `railwayapp/config` to apply pinned plans on merge.
