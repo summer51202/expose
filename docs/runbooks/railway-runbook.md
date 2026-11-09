@@ -108,10 +108,13 @@ railway config apply   # writes the change to the service settings
 ```
 
 - Always read the plan first. It must not show deleted variables, a removed GitHub source or a detached volume. Variables are `preserve()` in the file, so secret values are never committed.
-- Windows: the `railway` npm SDK runs `$_ --version` (or `railway --version`) to check the CLI and fails with "requires Railway CLI 5.42.1 or newer" when it finds only npm's shim. Point it at the real exe first: `$env:_ = "$env:APPDATA
-pm
-ode_modules@railwaycliin
-ailway.exe"` (PowerShell) or `_=<that path> railway config plan` (Git Bash).
+- Windows: the `railway` npm SDK runs `$_ --version` (or `railway --version`) to check the CLI and fails with "requires Railway CLI 5.42.1 or newer" when it finds only npm's shim. Point it at the real exe first (PowerShell; in Git Bash `$_` is overwritten by the shell, so use PowerShell):
+
+  ```powershell
+  $exe = "$env:APPDATA\npm\node_modules\@railway\cli\bin\railway.exe"
+  $env:_ = $exe
+  & $exe config plan
+  ```
 - If the dashboard is changed by hand, run `railway config pull --force` and commit the result, so the file does not undo it on the next apply.
 
 Why:
@@ -341,7 +344,7 @@ take roughly 20–45 minutes.
 At minimum document and protect:
 
 ### SQLite
-- Backup `/data/expose.db`
+- Automatic, see "資料庫備份與還原" below (`backups/db/` in `expose-private`)
 
 ### R2
 - Keep bucket/key conventions documented
@@ -350,9 +353,100 @@ At minimum document and protect:
 
 ---
 
+## 資料庫備份與還原
+
+資料庫 `/data/expose.db`（相簿、照片標題、留言、按讚、精選、瀏覽統計）會自動備份到私有 bucket `expose-private` 的 `backups/db/expose-YYYYMMDD-HHmmss.db.gz`（時間是 UTC）。圖片檔在 R2，不在這份備份裡。
+
+### 運作方式
+
+- **在哪裡跑**：在 app 自己的容器裡，由 `scripts/start.mjs` 排程，開一個子程序執行 `scripts/backup-db.mjs`。Railway 的 volume 只能掛在一個 service 上，獨立的 cron service 讀不到 `/data`；`railway run` 是在本機跑，也讀不到。用子程序執行，備份當掉或記憶體用量暴增都不會影響網站。
+- **什麼時候跑**：
+  - 啟動 60 秒後檢查一次：最近 24 小時內沒有成功的備份就補做。
+  - 之後每 10 分鐘檢查一次：每天的排程時間（`BACKUP_HOUR_UTC`，預設 19 UTC，也就是台北 03:00）過後，如果還沒做今天的備份就執行。
+  - 失敗後等 1 小時再重試。
+  - 兩個備份不會同時跑（`/tmp` 裡有 lock 檔）。
+- **怎麼備份**：用 `VACUUM INTO` 取得一致性的快照（不是直接複製正在寫入的檔案），對快照跑 `PRAGMA quick_check`，gzip 後上傳，再用 HEAD 確認大小，最後刪掉暫存檔。
+- **暫存檔放 `/tmp`**（可以用 `BACKUP_TMP_DIR` 改）：volume 只有 500MB，而且正式資料庫也在上面。把快照放在 volume 上，可能會把空間用完，讓網站自己的寫入失敗。開始之前會先檢查暫存資料夾剩下的空間有沒有資料庫大小的 2.2 倍。
+- **失敗時**：只記錄 log（`[backup] failed ...`），網站照常運作。
+- **關機時**：收到 SIGTERM 時，start.mjs 會先停掉排程，並對正在跑的備份送出 SIGTERM。備份程序會中止並清掉暫存檔，最多等 5 秒。這不會影響 Next 的優雅關機和 exit code。
+- **狀態檔**：`/data/backup-status.json`（幾百 bytes），記錄最近一次執行的時間、結果、大小和錯誤訊息。後台 `/admin/backups` 會讀這個檔案。
+- **保留策略**（每次備份成功後由程式清理）：
+  - 每日：保留最近 14 份每日備份（每天只算當天最新的那份）。這是算**份數**，不是算日曆天，所以備份中斷一段時間時，舊的也不會被刪光。
+  - 每月：最近 6 個月（含本月）每個月保留最早的一份，通常是 1 號那份；如果 1 號沒有備份，就保留那個月最早的一份。
+  - 最新的一份一定會保留。名稱不符合格式的檔案一律不刪。
+  - R2 lifecycle rule 沒辦法表達「每月 1 號那份留 6 個月」，所以由程式清理。如果想加一層保險，可以在 Cloudflare 的 `expose-private` → Settings → Object lifecycle rules 加一條：prefix `backups/db/`、物件超過 **200 天**就刪除。天數不能比 186 天短，不然會刪到每月備份。
+
+選用的變數（平常不用設）：`BACKUP_HOUR_UTC`（0–23）、`BACKUP_DISABLED=1`（關閉自動備份）、`BACKUP_TMP_DIR`、`BACKUP_STATUS_PATH`。
+
+### 手動備份和狀態
+
+- 後台 → 「資料庫備份」（`/admin/backups`）：顯示最近一次執行的時間、結果、大小、錯誤訊息，以及目前保留的備份清單，並有「立即備份」按鈕。
+- 指令（要在容器裡跑，才讀得到 `/data`）：
+
+  ```bash
+  railway ssh --service expose -- npm run db:backup
+  ```
+
+- Deploy Logs 會看到這樣的訊息：`[backup] ok (auto-startup): r2://expose-private/backups/db/expose-20261109-190012.db.gz 1.2 MB gz from 4.8 MB db in 0.9s; retention removed 0`
+
+### 還原（不會自動覆蓋，最後一步要人工確認）
+
+`scripts/restore-db.mjs`（`npm run db:restore`）只會下載、解壓、驗證，**不會動到 `/data/expose.db`**。指定的輸出路徑是正式資料庫，或是它的 `-journal`/`-wal` 檔時，腳本會拒絕執行。
+
+1. **選一份備份**：
+
+   ```bash
+   railway ssh --service expose -- npm run db:restore -- --list
+   ```
+
+2. **先把目前的狀態也備份一份**（就算內容有問題，也留一份可以回頭）：
+
+   ```bash
+   railway ssh --service expose -- npm run db:backup
+   ```
+
+3. **進入維護模式（停服務）**：Railway → expose → Variables 新增 `EXPOSE_MAINTENANCE=1`，按 Deploy。新的容器會跑 `prisma migrate deploy`，但 `start.mjs` 不會啟動 Next，也不會排程備份，只是保持在線上，讓你可以 `railway ssh` 進去。這時網站會無法連線。Deploy Logs 會看到 `[start] EXPOSE_MAINTENANCE=1: not starting the site or backups`。
+   - 這個變數是暫時的，沒有寫進 `.railway/railway.ts`。在維護模式期間**不要**執行 `railway config apply`。
+
+4. **下載並驗證**（寫到 volume 上，這樣重新部署後還在。volume 要有大約一份資料庫大小的空間）：
+
+   ```bash
+   railway ssh --service expose -- npm run db:restore -- --key backups/db/expose-YYYYMMDD-HHmmss.db.gz --out /data/expose-restore.db --compare /data/expose.db
+   ```
+
+   確認輸出有 `PRAGMA integrity_check: ok`，並比對各資料表的筆數（左邊是備份，右邊是目前的資料庫）。如果不是 `ok`，換一份更舊的備份。
+
+5. **人工確認後替換**（進容器的 shell：`railway ssh --service expose`）：
+
+   ```sh
+   ls -la /data
+   # 舊的檔案（連同 -journal/-wal/-shm）改名保留，不要直接刪
+   for f in /data/expose.db /data/expose.db-journal /data/expose.db-wal /data/expose.db-shm; do
+     [ -e "$f" ] && mv "$f" "$f.before-restore"
+   done
+   mv /data/expose-restore.db /data/expose.db
+   ls -la /data
+   ```
+
+6. **重新啟動**：在 Variables 刪掉 `EXPOSE_MAINTENANCE`，按 Deploy。start command 會先跑 `prisma migrate deploy`，如果備份的 schema 比較舊，會補上缺少的 migration。
+
+7. **確認**：
+   - Deploy Logs 沒有錯誤；約 1 分鐘後會看到 `[backup] ...`（剛還原的資料庫狀態檔沒有變，所以可能是 skip，也可能會做一次備份）。
+   - 首頁、相簿頁、照片頁都正常；後台的照片數、留言數和第 4 步的筆數一致。
+   - 到後台「資料庫備份」按一次「立即備份」。
+   - 確認幾天沒問題後，再刪掉 `/data/*.before-restore`（會佔 volume 空間）。
+
+**回到還原前的狀態**：重做第 3 步，把 `.before-restore` 的檔案改回原本的名稱，再重做第 6 步。
+
+### 本機
+
+`STORAGE_BACKEND=local` 時，備份會寫到 `storage/private/backups/db/`（已加進 .gitignore）。`DATA_BACKEND` 不是 `prisma`（例如 json 模式）時，不會做備份。
+
+---
+
 ## Recommended Next Improvements
 
 1. Replace `r2.dev` with `img.<your-domain>`
 2. Rotate exposed R2 credentials
-3. Add a documented DB backup routine
-4. Add a one-photo production smoke test after each deploy
+3. Add a one-photo production smoke test after each deploy
+4. Back up `expose-private/uploads/` (originals) somewhere outside R2

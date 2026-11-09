@@ -11,6 +11,7 @@ const navItems = [
   { href: "/admin/comments", label: "留言管理" },
   { href: "/admin/likes", label: "按讚統計" },
   { href: "/admin/analytics", label: "瀏覽量統計" },
+  { href: "/admin/backups", label: "資料庫備份" },
 ];
 
 type AdminShellProps = {

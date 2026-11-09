@@ -709,6 +709,8 @@ ailway.json` in the main checkout, which is on an older master. It goes away aft
 
 **下一步**：PR 合併後清掉 worktree：`git worktree remove .worktrees/protection`。真機確認長按不會出現存圖選單。
 
+---
+
 ### Session #018-B — 2026-11-09
 
 **任務**：後台照片管理加上編輯照片標題、描述、地點（單張和批次），把檔名式的標題改成有意義的文字，為了 SEO 和分享預覽。使用者指定，不在 features.json 內（未修改 features.json）。分支 `feat/admin-photo-edit`（worktree `.worktrees/photo-edit`）。
@@ -765,3 +767,48 @@ ailway.json` in the main checkout, which is on an older master. It goes away aft
 1. PR 合併、部署後，到正式站後台用「批次編輯文字」＋「只顯示標題像檔名」把標題改好。
 2. 如果之後要換自訂網域，最好先換網域再大量改標題（避免搜尋引擎和分享快取記到舊網址）。
 3. PR 合併後清掉 worktree：`git worktree remove .worktrees/photo-edit`。
+
+---
+
+### Session #018-D - 資料庫自動備份到私有 R2 + 還原流程 (2026-11-09)
+**Role**: Agent (Coding Agent)。不是 `features.json` 裡的 feature，沒有改 `features.json`。
+**Branch**: `feat/db-backup`（worktree `.worktrees/db-backup`，從 master `f7a18cb`）
+
+**設計（方案選擇）**：
+- Railway volume 只能掛在一個 service 上，獨立的 cron service 和 `railway run`（在本機跑）都讀不到 `/data`，所以備份在 app 自己的容器裡執行：`scripts/start.mjs` 排程，開子程序跑 `scripts/backup-db.mjs`。子程序當掉不會影響網站；SIGTERM 時會先停排程、中止正在跑的備份，再照原本的流程關掉 Next，exit code 的邏輯不變。
+- 排程：啟動 60 秒後檢查（`--if-due=startup`：24 小時內沒有成功的備份就做），之後每 10 分鐘檢查（`--if-due=scheduled`：每天 `BACKUP_HOUR_UTC`，預設 19 UTC = 台北 03:00，過後還沒做就執行）。失敗後等 1 小時再重試。`/tmp` 裡有 lock 檔，同時只會跑一個。
+- 快照：`VACUUM INTO`（透過 Prisma `$executeRawUnsafe`）→ `PRAGMA quick_check` → gzip → 上傳到 `backups/db/expose-YYYYMMDD-HHmmss.db.gz`（UTC）→ HEAD 確認大小 → 清理 → 寫 `/data/backup-status.json`。暫存檔放 `/tmp`（`BACKUP_TMP_DIR`），因為 volume 只有 500MB 而且正式資料庫也在上面；開始前會先檢查剩餘空間。
+- 保留策略由程式清理：最近 14 份每日備份（每天只算最新的一份，**算份數不是算天數**），加上最近 6 個月每個月最早的一份（通常是 1 號）。名稱不符合格式的檔案不刪，最新的一份一定保留。runbook 有寫可以加一條 200 天的 R2 lifecycle rule 當作保險。
+- 程式碼：`src/lib/backup/*.mjs`（plain ESM，start.mjs、scripts、Next 共用）。`backup-storage.mjs` 有自己的 SigV4，因為需要 ListObjectsV2（signed query string）；backend 是 R2 的 `R2_PRIVATE_BUCKET_NAME`，或 local 的 `storage/private/backups/db/`。
+- 還原：`scripts/restore-db.mjs`（`npm run db:restore -- --list | --latest | --key <k>  --out <path> [--compare <db>]`）只會下載、解壓、跑 `integrity_check`、列出各資料表筆數。輸出路徑是正式資料庫或它的 journal 檔時會拒絕執行。替換是手動步驟，`start.mjs` 新增 `EXPOSE_MAINTENANCE=1`（不啟動 Next 和備份，讓你可以 ssh 進去換檔案）。
+- 後台 `/admin/backups`：最近一次執行的時間、結果、大小、錯誤訊息，目前保留的備份清單，以及「立即備份」按鈕（server action，有 `requireAdminSession`）。admin-shell 加了導覽連結。`package.json` 加了 `db:backup`、`db:restore`。
+- `.railway/railway.ts` 補上 `R2_PRIVATE_BUCKET_NAME`、`GOOGLE_SITE_VERIFICATION` 的 `preserve()`。
+- runbook 新增「資料庫備份與還原」，並修好第 4 節 railway.exe 路徑裡的控制字元。
+
+**railway config plan**（沒有執行 apply）：
+- 舊的 railway.ts：`Plan: 0 to add, 0 to change, 2 to destroy`（Delete variable expose.GOOGLE_SITE_VERIFICATION、expose.R2_PRIVATE_BUCKET_NAME）
+- 新的 railway.ts：`✓ Your Railway configuration is already up to date.`（0 destroy）
+- 正式環境其他的變數都是 `RAILWAY_*` 系統變數。
+
+**驗證**：
+- `.session/verify.ps1 -Feature "db-backup"` → ALL CHECKS PASSED。Build 只剩 og-image 原本就有的 2 個 tracing warning（備份程式碼的 `stat` 已加 `turbopackIgnore`）。
+- `node --import tsx --test` 184/184 通過。新增的測試涵蓋：命名、保留策略（每日、每月、月初沒有備份時的 fallback、同一天多份、不刪未知檔案）、排程判斷（startup 24h、每日 slot、失敗 backoff）、R2 list XML、key 防 traversal、實際 SQLite 備份→還原、失敗時不 throw、lock、scheduler（一次只跑一個、stop 會取消、spawn 失敗不 throw）、restore 拒絕覆寫正式 db。
+- 本機實測（scratch SQLite 套用正式 migrations，3 相簿／120 照片／120 留言／120 讚，`STORAGE_BACKEND=local`）：
+  - `npm run db:backup` 成功（128 KB → 12.1 KB），暫存資料夾已清空；`--if-due=startup` 正確跳過。
+  - 刪掉 10 筆留言後跑 `db:restore --latest --compare`：`integrity_check: ok`，還原出來的留言是 120 筆、目前的資料庫是 110 筆，其他資料表筆數一致；正式 db 沒被動到；`--out` 指向正式 db 時被拒絕。
+  - 用 `start.mjs` 啟動（port 3014、`NEXT_DIST_DIR=.next-wt-d`，用這次產生的測試管理員帳密）：60 秒後 log 出現 `[backup] ok (auto-startup)`。`/admin/backups` 沒登入時 307 到登入頁，登入後正常顯示；按「立即備份」顯示成功，保留策略清掉同一天較舊的那份。
+  - 測試完刪掉 `.next-wt-d`、`storage/private/backups`、scratch 檔案，tsconfig 自動加的路徑也已還原。
+- R2：用本機憑證對 `expose-private` 做了唯讀的 ListObjectsV2，簽章可以用（`backups/db/` 是空的，`uploads/` 有 991 個物件）。R2 的上傳和刪除沒有在本機測，因為不想在正式 bucket 留下測試檔；超過 1000 個物件時的分頁也還沒實際跑過。
+- Windows 上無法模擬 Linux 的 SIGTERM 流程，只有單元測試。
+- 備註：Next 程序印出的 `Couldn't load fs` / `Couldn't load zlib` 來自 `src/lib/photos/exif.ts` 用的 exifr，跟這次無關。
+
+**合併後要做的事**：
+1. 部署成功後，Deploy Logs 約 1 分鐘內會出現 `[backup] ok (auto-startup): r2://expose-private/backups/db/expose-....db.gz ...`。
+2. 到 Cloudflare `expose-private/backups/db/` 看到備份檔。
+3. 到後台「資料庫備份」按一次「立即備份」。
+4. 確認之後可以執行 `railway config apply`（plan 是 0 destroy）。
+5. 清掉 worktree：`git worktree remove .worktrees/db-backup`。
+
+**遺留問題／下一步**：
+- `expose-private/uploads/`（原圖）還沒有備份到 R2 以外的地方。
+- 清理舊備份失敗時，備份本身還是算成功，log 會出現 `retention cleanup failed`，後台清單也會顯示錯誤。
