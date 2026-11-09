@@ -7,6 +7,11 @@ import {
 } from "@/lib/photos/manifest-repository";
 import { getDataBackend } from "@/lib/data/backend";
 import { applyFeatured } from "@/lib/photos/featured-photos";
+import {
+  applyPhotoTextPatches,
+  toPhotoTextUpdateData,
+  type PhotoTextPatch,
+} from "@/lib/photos/photo-text";
 import { fromPrismaBigInt, toPrismaBigInt } from "@/lib/prisma-id";
 import { prisma } from "@/lib/prisma";
 import type { PhotoRecord } from "@/types/photo";
@@ -31,6 +36,7 @@ function mapPhotoRecordFromPrisma(photo: PrismaPhotoWithAlbum): PhotoRecord {
     id: Number(photo.id),
     title: photo.title,
     description: photo.description ?? undefined,
+    location: photo.location ?? undefined,
     shotAt: photo.takenAt?.toISOString(),
     albumName: photo.album?.name,
     albumSlug: photo.album?.slug,
@@ -77,6 +83,7 @@ function mapPhotoCreateInput(record: PhotoRecord) {
     albumId: record.albumId != null ? toPrismaBigInt(record.albumId) : null,
     title: record.title,
     description: record.description,
+    location: record.location ?? null,
     originalUrl: record.originalUrl,
     mediumUrl: record.mediumUrl,
     largeUrl: record.largeUrl ?? null,
@@ -106,6 +113,12 @@ export interface PhotoRepository {
   /** Returns the updated photo, or null when it does not exist. */
   setPhotoFeatured(photoId: number, featured: boolean): Promise<PhotoRecord | null>;
   movePhotosToAlbum(photoIds: number[], assignment: PhotoAlbumAssignment): Promise<void>;
+  /**
+   * Writes title / description / location. Only the fields present in each patch
+   * change; null clears description or location. Returns the updated photos;
+   * ids that do not exist are skipped.
+   */
+  updatePhotoText(patches: PhotoTextPatch[]): Promise<PhotoRecord[]>;
   deletePhoto(photoId: number): Promise<PhotoRecord | null>;
   deletePhotos(photoIds: number[]): Promise<PhotoRecord[]>;
   renameAlbumReferences(albumId: number, name: string, slug: string): Promise<void>;
@@ -154,6 +167,20 @@ const jsonPhotoRepository: PhotoRepository = {
         targetIds.has(photo.id) ? assignPhotoAlbum(photo, assignment) : photo,
       ),
     );
+  },
+  async updatePhotoText(patches) {
+    if (patches.length === 0) {
+      return [];
+    }
+
+    const photos = await listManifestPhotos();
+    const { records, updated } = applyPhotoTextPatches(photos, patches);
+
+    if (updated.length > 0) {
+      await replaceManifestPhotos(records);
+    }
+
+    return updated;
   },
   async deletePhoto(photoId) {
     const deletedPhotos = await this.deletePhotos([photoId]);
@@ -282,6 +309,55 @@ const prismaPhotoRepository: PhotoRepository = {
         albumId: toPrismaBigInt(assignment.albumId),
       },
     });
+  },
+  async updatePhotoText(patches) {
+    if (patches.length === 0) {
+      return [];
+    }
+
+    const ids = patches.map((patch) => toPrismaBigInt(patch.id));
+    const existing = await prisma.photo.findMany({
+      where: { id: { in: ids } },
+      select: { id: true },
+    });
+    const existingIds = new Set(existing.map((photo) => Number(photo.id)));
+    const writable = patches.filter((patch) => existingIds.has(patch.id));
+
+    if (writable.length === 0) {
+      return [];
+    }
+
+    // One transaction so a batch save is all-or-nothing.
+    await prisma.$transaction(
+      writable.map((patch) =>
+        prisma.photo.update({
+          where: { id: toPrismaBigInt(patch.id) },
+          data: toPhotoTextUpdateData(patch),
+        }),
+      ),
+    );
+
+    const photos = await prisma.photo.findMany({
+      where: { id: { in: writable.map((patch) => toPrismaBigInt(patch.id)) } },
+      include: {
+        album: {
+          select: {
+            name: true,
+            slug: true,
+          },
+        },
+      },
+    });
+    const byId = new Map(
+      photos.map((photo) => {
+        const record = mapPhotoRecordFromPrisma(photo as PrismaPhotoWithAlbum);
+        return [record.id, record] as const;
+      }),
+    );
+
+    return writable
+      .map((patch) => byId.get(patch.id))
+      .filter((record): record is PhotoRecord => record !== undefined);
   },
   async deletePhoto(photoId) {
     const deletedPhotos = await this.deletePhotos([photoId]);

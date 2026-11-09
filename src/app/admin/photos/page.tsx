@@ -19,7 +19,7 @@ export default async function AdminPhotosPage() {
           <p className="text-sm tracking-[0.2em] text-stone-500 uppercase">Photo Manager</p>
           <h1 className="mt-2 text-3xl font-semibold text-stone-950">管理照片</h1>
           <p className="mt-3 leading-7 text-stone-700">
-            所有上傳照片都可以在這裡篩選、單張移動或批次移動到其他相簿。標為「精選」的照片會出現在
+            所有上傳照片都可以在這裡篩選、編輯標題／描述／地點，或移動到其他相簿。「批次編輯文字」可以一次修改多張照片，並篩出標題還是檔名的照片。標為「精選」的照片會出現在
             About 頁的 Selected work（最多 6 張）；精選的橫幅照片達 2 張以上時，首頁輪播只顯示精選照片。
           </p>
         </div>

@@ -6,6 +6,11 @@ import { getAlbumOptions } from "@/lib/albums/queries";
 import { requireAdminSession } from "@/lib/auth/session";
 import { getPhotoDeleteError } from "@/lib/photos/photo-delete";
 import { deletePhotoFiles } from "@/lib/photos/photo-file-cleanup";
+import {
+  getPhotoTextValues,
+  validatePhotoTextPatches,
+  type PhotoTextValues,
+} from "@/lib/photos/photo-text";
 import { getPhotoRepository, type PhotoAlbumAssignment } from "@/lib/photos/repository";
 import type { PhotoRecord } from "@/types/photo";
 
@@ -25,6 +30,15 @@ export type PhotoFeaturedState = {
   error?: string;
   success?: string;
 };
+
+export type PhotoTextSaveResult =
+  | {
+      ok: true;
+      message: string;
+      /** Saved values per photo id, as stored. */
+      saved: { id: number; values: PhotoTextValues }[];
+    }
+  | { ok: false; error: string };
 
 function parseAlbumId(formData: FormData) {
   const albumId = Number(String(formData.get("albumId") || "").trim());
@@ -313,5 +327,67 @@ export async function setPhotoFeaturedAction(
     return {
       error: "更新精選失敗，請稍後再試一次。",
     };
+  }
+}
+
+function revalidatePhotoTextPaths(photos: PhotoRecord[]) {
+  // Titles show up on the home page, About (featured), album pages, photo pages,
+  // their OG images and the sitemap.
+  revalidatePath("/");
+  revalidatePath("/about");
+  revalidatePath("/sitemap.xml");
+  revalidatePath("/admin/photos");
+
+  const albumSlugs = new Set<string>();
+
+  for (const photo of photos) {
+    if (photo.albumSlug) {
+      albumSlugs.add(photo.albumSlug);
+    }
+
+    // "layout" also covers the photo's nested opengraph-image route.
+    revalidatePath(`/photos/uploaded/${photo.id}`, "layout");
+  }
+
+  for (const slug of albumSlugs) {
+    revalidatePath(`/albums/${slug}`);
+  }
+}
+
+/**
+ * Saves title / description / location for one or more photos. The client sends
+ * only the fields that changed; anything else is left as it is.
+ */
+export async function savePhotoTextAction(input: unknown): Promise<PhotoTextSaveResult> {
+  await requireAdminSession();
+
+  const validation = validatePhotoTextPatches(input);
+
+  if (!validation.ok) {
+    return { ok: false, error: validation.error };
+  }
+
+  const { patches } = validation;
+  const repository = getPhotoRepository();
+
+  try {
+    const photos = await repository.listUploadedPhotos();
+    const existingIds = new Set(photos.map((photo) => photo.id));
+
+    if (patches.some((patch) => !existingIds.has(patch.id))) {
+      return { ok: false, error: "有照片不存在，請重新整理後再試一次。" };
+    }
+
+    const updated = await repository.updatePhotoText(patches);
+    revalidatePhotoTextPaths(updated);
+
+    return {
+      ok: true,
+      message:
+        updated.length === 1 ? "已儲存照片文字。" : `已儲存 ${updated.length} 張照片的修改。`,
+      saved: updated.map((photo) => ({ id: photo.id, values: getPhotoTextValues(photo) })),
+    };
+  } catch {
+    return { ok: false, error: "儲存失敗，請稍後再試一次。" };
   }
 }
