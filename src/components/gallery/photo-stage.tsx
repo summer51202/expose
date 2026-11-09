@@ -1,6 +1,6 @@
 import Image from "next/image";
 
-import { ContextMenuGuard } from "@/components/gallery/context-menu-guard";
+import { ImageGuard } from "@/components/gallery/image-guard";
 import { getDisplayImageUrl, type DisplayImageVariant } from "@/lib/photos/display-image";
 import { cn } from "@/lib/utils";
 import type { PublicPhoto } from "@/types/photo";
@@ -8,7 +8,6 @@ import type { PublicPhoto } from "@/types/photo";
 type PhotoStageProps = {
   photo: PublicPhoto;
   priority?: boolean;
-  disableContextMenu?: boolean;
   /** Grid cards stay on `medium`; the photo detail page asks for `large`. */
   variant?: DisplayImageVariant;
   /** Rendered width hint for next/image; defaults to the grid card layout. */
@@ -29,7 +28,6 @@ const sampleGradients = [
 export function PhotoStage({
   photo,
   priority = false,
-  disableContextMenu = false,
   variant = "medium",
   sizes = GRID_CARD_SIZES,
 }: PhotoStageProps) {
@@ -37,8 +35,7 @@ export function PhotoStage({
   const sampleGradient = sampleGradients[photo.id % sampleGradients.length];
 
   return (
-    <ContextMenuGuard
-      enabled={disableContextMenu}
+    <ImageGuard
       className="relative w-full overflow-hidden rounded-[1.25rem]"
       style={{ aspectRatio: `${photo.width} / ${photo.height}` }}
     >
@@ -59,6 +56,6 @@ export function PhotoStage({
           blurDataURL={photo.blurDataUrl}
         />
       )}
-    </ContextMenuGuard>
+    </ImageGuard>
   );
 }

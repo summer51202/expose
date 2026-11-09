@@ -1,5 +1,6 @@
 import Image from "next/image";
 
+import { ImageGuard } from "@/components/gallery/image-guard";
 import { getDisplayImageUrl } from "@/lib/photos/display-image";
 import type { PublicPhoto } from "@/types/photo";
 
@@ -25,10 +26,7 @@ export function GalleryImageStage({
   const sampleGradient = sampleGradients[photo.id % sampleGradients.length];
 
   return (
-    <div
-      className="relative h-full w-full"
-      onContextMenu={(event) => event.preventDefault()}
-    >
+    <ImageGuard className="relative h-full w-full">
       {isSample ? (
         <div className="flex h-full w-full items-center justify-center bg-black">
           <div
@@ -49,6 +47,6 @@ export function GalleryImageStage({
           blurDataURL={photo.blurDataUrl}
         />
       )}
-    </div>
+    </ImageGuard>
   );
 }
