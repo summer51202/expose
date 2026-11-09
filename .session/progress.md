@@ -649,3 +649,23 @@
 - 注意：Claude Code 自動模式不允許 agent 用 `railway ssh` 在正式容器裡執行指令（包括只讀的檢查），所以 bucket 內容由使用者在 Cloudflare 確認，搬移腳本也由使用者執行。
 
 **下一步**：用 `expose-private` 的原圖重做浮水印、降低對外的 large 尺寸。備份時要包含 `expose-private`（它是唯一的全解析度副本）。
+
+---
+
+### Session #018-D - 資料庫自動備份到私有 R2 + 還原流程 (2026-11-09，未完成，因用量上限中斷)
+**Branch**: `feat/db-backup`（worktree `.worktrees/db-backup`，從 master `f7a18cb`）。不是 features.json 的 feature，沒有改它。
+
+**已完成**：
+- `src/lib/backup/`（plain .mjs，start.mjs/scripts/Next 共用）：`backup-plan.mjs`（命名、保留策略、排程判斷）、`backup-storage.mjs`（R2 私有 bucket + ListObjectsV2 / local `storage/private/backups/db/`）、`run-backup.mjs`（VACUUM INTO → quick_check → gzip → 上傳 → HEAD 驗證 → 清理 → `/data/backup-status.json`，暫存在 /tmp，有 lock，永不 throw）。
+- `scripts/backup-db.mjs`（`npm run db:backup`，`--if-due=startup|scheduled`）、`scripts/restore-db.mjs`（`npm run db:restore -- --list/--latest/--key --out --compare`，拒絕覆寫正式 db）。
+- `scripts/start.mjs`：子程序排程備份（啟動 60s 後、之後每 10 分鐘檢查），SIGTERM 時停排程並中止備份；`EXPOSE_MAINTENANCE=1` 維護模式（還原用）。
+- 後台 `/admin/backups`（狀態 + 清單 + 「立即備份」，requireAdminSession），admin-shell 加導覽。
+- `.railway/railway.ts` 補 `R2_PRIVATE_BUCKET_NAME`、`GOOGLE_SITE_VERIFICATION`。`railway config plan`：舊檔是 `0 add, 0 change, 2 destroy`（刪這兩個變數），新檔是「already up to date」= 0 destroy。正式環境其他變數都是 RAILWAY_* 系統變數。**沒有執行 config apply**。
+- runbook 新增「資料庫備份與還原」章節。
+- 測試：`node --import tsx --test` 184/184 通過（含實際 SQLite 備份→還原比對），tsc 通過，eslint 只剩既有 warning。
+
+**還沒做（下一個 session 接手）**：
+1. 跑 `.session/verify.ps1 -Feature "db-backup"`（build 還沒跑過；Next 匯入 .mjs 可能有 Turbopack tracing warning）。
+2. 本機實測 CLI：用 scratch 的 SQLite（不要用 .env 的共用 temp db）+ `STORAGE_BACKEND=local` 跑 `db:backup` 和 `db:restore --latest --compare`；後台頁面用 port 3014 + `NEXT_DIST_DIR=.next-wt-d` 檢查。
+3. runbook 第 4 節的 railway.exe 路徑有控制字元（\n、\b）壞掉，可順手修。
+4. push（HTTPS）、開 PR（附 config plan 結果與合併後確認步驟），PR 合併後 `git worktree remove .worktrees/db-backup`。
