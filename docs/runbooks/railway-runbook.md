@@ -108,10 +108,13 @@ railway config apply   # writes the change to the service settings
 ```
 
 - Always read the plan first. It must not show deleted variables, a removed GitHub source or a detached volume. Variables are `preserve()` in the file, so secret values are never committed.
-- Windows: the `railway` npm SDK runs `$_ --version` (or `railway --version`) to check the CLI and fails with "requires Railway CLI 5.42.1 or newer" when it finds only npm's shim. Point it at the real exe first: `$env:_ = "$env:APPDATA
-pm
-ode_modules@railwaycliin
-ailway.exe"` (PowerShell) or `_=<that path> railway config plan` (Git Bash).
+- Windows: the `railway` npm SDK runs `$_ --version` (or `railway --version`) to check the CLI and fails with "requires Railway CLI 5.42.1 or newer" when it finds only npm's shim. Point it at the real exe first (PowerShell; in Git Bash `$_` is overwritten by the shell, so use PowerShell):
+
+  ```powershell
+  $exe = "$env:APPDATA\npm\node_modules\@railway\cli\bin\railway.exe"
+  $env:_ = $exe
+  & $exe config plan
+  ```
 - If the dashboard is changed by hand, run `railway config pull --force` and commit the result, so the file does not undo it on the next apply.
 
 Why:

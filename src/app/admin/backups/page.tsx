@@ -54,7 +54,7 @@ export default async function AdminBackupsPage() {
           <h2 className="text-2xl font-semibold text-stone-900">資料庫備份</h2>
           <p className="mt-3 leading-7 text-stone-700">
             每天台北時間 {String(taipeiHour).padStart(2, "0")}:00 後自動備份一次資料庫（相簿、照片資訊、留言、按讚、統計），
-            啟動時如果超過 24 小時沒有成功的備份會補做。保留最近 14 天每天一份，加上 6 個月內每月第一份。
+            啟動時如果超過 24 小時沒有成功的備份會補做。保留最近 14 份每日備份（每天只算最新的一份），加上 6 個月內每月最早的一份。
             圖片檔在 R2，不在這份備份裡。
           </p>
 

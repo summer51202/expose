@@ -220,7 +220,7 @@ export async function runDbBackup({
     const storage = getBackupStorage(env, projectRoot);
     status.storage = storage.location;
 
-    const dbSize = (await stat(dbPath)).size;
+    const dbSize = (await stat(/*turbopackIgnore: true*/ dbPath)).size;
     const available = await freeBytes(tempDir);
     // Snapshot (<= db size) plus its gzip (smaller), with some headroom.
     if (available !== null && available < dbSize * 2.2) {
