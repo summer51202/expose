@@ -649,3 +649,26 @@
 - 注意：Claude Code 自動模式不允許 agent 用 `railway ssh` 在正式容器裡執行指令（包括只讀的檢查），所以 bucket 內容由使用者在 Cloudflare 確認，搬移腳本也由使用者執行。
 
 **下一步**：用 `expose-private` 的原圖重做浮水印、降低對外的 large 尺寸。備份時要包含 `expose-private`（它是唯一的全解析度副本）。
+
+---
+
+## Session #018-A（2026-11-09）— 浮水印、large 2048px、版權 EXIF、重新產生腳本（進行中，未完成）
+
+**分支／worktree**：`feat/watermark-derivatives`，`.worktrees/watermark`（尚未 push、尚未開 PR）。
+
+**已完成（已 commit）**：
+- `src/lib/uploads/derivative-render.mjs`：上傳和 scripts 共用的渲染邏輯。`LARGE_MAX_DIMENSION=2048`、`DERIVATIVE_VERSION=2`、`WATERMARK` 設定物件（開關、文字 `© {name}`、透明度、字級／邊距依短邊比例、陰影、字型）、`COPYRIGHT_METADATA`。
+- 字型自帶 `src/lib/uploads/fonts/Geist-Regular.ttf`（OFL，取自 next 內附），因為 Railway 容器沒有系統字型。
+- EXIF 用 sharp 0.35 `withExif({ IFD0: { Artist, Copyright } })`；讀回驗證沒有 Make/Model/GPS。注意：libvips 把 `©` 寫成 `(C)`，並自動加 Orientation/解析度/像素尺寸等結構欄位。
+- 新上傳寫入 `-large.v2.webp` 等版本化 key。DB 的 width/height 是原圖（轉正後）尺寸，不是衍生圖尺寸。
+- `scripts/regenerate-derivatives.mjs`（`npm run images:regenerate`）：預設 dry-run，`--apply`、`--limit N`、`--only <id>`；新 key → 更新 DB → 刪舊檔，可重跑（清除遺留舊檔）。
+- 移除 `backfill-large-images.mjs`（會產生沒浮水印的 large，功能已被取代）。
+- 單元測試：全部 167 個通過；tsc、eslint 通過（只有既有的 2 個 warning）。
+- runbook 新增「Public Derivatives」章節。
+
+**尚未完成（下一個 session 接手）**：
+1. `.session/verify.ps1 -Feature "watermark-derivatives"`（含 build）。
+2. port 3011 實測（`NEXT_DIST_DIR=.next-wt-a`）：上傳橫式＋直式、確認 large 2048、EXIF、首頁／相簿／照片頁／`/opengraph-image`。需要測試管理員帳密：用暫時 `.env.local`，測完刪除。
+3. 用本機舊資料跑 `images:regenerate` dry-run 和 `--apply`（本機 23 張舊照片的原圖在 public/uploads，屬 legacy）；測完還原 `data/photos.json` 和 `public/uploads/`。
+4. 浮水印截圖給使用者確認，push（HTTPS）、開 PR（中文說明，附截圖與合併後步驟）。
+5. 若 tsconfig 被自動加入 `.next-*` 路徑，commit 前還原。

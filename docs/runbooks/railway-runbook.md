@@ -259,7 +259,79 @@ copy is confirmed. A failed photo is left untouched in the DB and in `expose`.
 ### Verify afterwards
 - Take a `-large.webp` URL of an old photo from a page, change `-large` to `-original`: it must return 404
 - In Cloudflare, `expose` should have no `*-original.webp` objects left; `expose-private` should have one per photo
-- `npm run images:backfill:large` reads originals from the private bucket from now on
+- `npm run images:regenerate` (see Public Derivatives below) reads originals from the private bucket
+
+---
+
+## Public Derivatives (watermark, size, copyright EXIF)
+
+Everything the public sees is a derivative rendered from the private original by
+`src/lib/uploads/derivative-render.mjs` (shared by uploads and scripts):
+
+| derivative | long edge | watermark | key |
+|---|---|---|---|
+| large | 2048px (`LARGE_MAX_DIMENSION`) | yes | `uploads/<base>-large.v2.webp` |
+| medium | 1200px | yes | `uploads/<base>-medium.v2.webp` |
+| thumbnail | 400px | no | `uploads/<base>-thumb.v2.webp` |
+
+- **Watermark**: `© <siteConfig.photographerName>` bottom-right, semi-transparent white with a soft
+  shadow. Font size and margin are ratios of the image's short edge. Switch, text, opacity, size,
+  shadow and font are all in the `WATERMARK` object. The font is bundled
+  (`src/lib/uploads/fonts/Geist-Regular.ttf`, SIL OFL) because the Railway image has no system fonts
+- **EXIF**: every derivative carries only `Artist = Edward Lee` and
+  `Copyright = (C) Edward Lee. All rights reserved.` (EXIF text is ASCII, so libvips writes `©` as
+  `(C)`), plus the technical tags libvips always writes (orientation = 1, resolution, pixel size).
+  Nothing from the original's EXIF (camera, dates, **GPS**) is copied. Photo info shown on the site
+  comes from the DB (`exifData`), not from the image files
+- **New uploads** get all of this immediately; nothing to run
+- **DB `width` / `height`** are the original's displayed size (after EXIF rotation), not a derivative's
+
+### Versioned keys
+
+The `.v2` in the key is `DERIVATIVE_VERSION`. When the look of the derivatives changes again
+(watermark, size, quality), bump it and run the regenerate script: every photo gets new URLs, so
+the CDN and browsers cannot keep serving the old images (all derivatives are cached
+`immutable` for a year), and the old URLs return 404 once the old files are deleted.
+
+### After merging: regenerate existing photos (`scripts/regenerate-derivatives.mjs`)
+
+Re-renders large/medium/thumbnail of every photo from its original. Run it **inside the Railway
+service** (same reason as the originals migration above: `railway run` would not see `/data/expose.db`;
+the script refuses to start in that case). Wait until the deploy with this code is live first.
+
+```bash
+# 1. dry run (default): lists each photo: original -> new keys, and the old keys it will delete
+railway ssh --service expose -- npm run images:regenerate
+
+# 2. one photo first, then check it on the site (watermark, size) before doing the rest
+railway ssh --service expose -- npm run images:regenerate -- --apply --limit 1
+
+# 3. everything else (photos already on .v2 keys are skipped)
+railway ssh --service expose -- npm run images:regenerate -- --apply
+```
+
+Other options: `--only <photo id>` processes one specific photo. Locally:
+`DATA_BACKEND=json STORAGE_BACKEND=local npm run images:regenerate` (originals from
+`storage/private/uploads/`, or `public/uploads/` for legacy local photos).
+
+What `--apply` does for each photo, in order:
+1. reads the original (private bucket; legacy photos not yet migrated: public bucket)
+2. renders the three derivatives and uploads them to the new `.v2` keys in `expose`
+3. updates the DB row: `largeUrl/Key`, `mediumUrl/Key`, `thumbnailUrl/Key` (and `width/height`
+   if they did not match the original)
+4. deletes the old derivative files from `expose` (never the original)
+
+It ends with `Regenerated N, cleaned N leftover old files, already current N, skipped N, failed N`.
+Exit code is 1 if anything failed. A failed photo keeps its old images and DB row. Safe to re-run
+(also if `railway ssh` drops mid-run): photos already on `.v2` keys are skipped, and old files left
+behind by a crash between steps 3 and 4 are deleted. Rough speed: 1–3 s per photo, so ~991 photos
+take roughly 20–45 minutes.
+
+### Verify afterwards
+- Open an old photo's page: the large image has the watermark bottom-right and its URL ends in `-large.v2.webp`
+- Download that large: long edge 2048px; `exiftool` (or any EXIF viewer) shows Artist/Copyright and no GPS
+- The old URL (same URL without `.v2`) returns 404
+- Re-run the dry run: `would regenerate 0`
 
 ---
 
