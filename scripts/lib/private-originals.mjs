@@ -26,7 +26,10 @@ export function privateKeyFromOriginalUrl(url) {
   return normalizeKey(url.slice(PRIVATE_ORIGINAL_URL_PREFIX.length)) || null;
 }
 
-/** Same rule as resolvePrivateBucketName in src/lib/storage/r2-driver.ts. */
+/**
+ * Same rule as resolvePrivateBucketName in src/lib/storage/r2-driver.ts.
+ * @param {Record<string, string | undefined>} [env]
+ */
 export function getR2PrivateBucketName(env = process.env) {
   const privateBucket = env.R2_PRIVATE_BUCKET_NAME?.trim();
   if (!privateBucket) {

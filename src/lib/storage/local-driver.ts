@@ -84,7 +84,8 @@ export const localPrivateStorageDriver: PrivateStorageDriver = {
   },
   async getObject(key) {
     try {
-      return await readFile(requirePrivateLocalPath(key));
+      // Local dev only (storage/private); keep Turbopack from tracing the whole project.
+      return await readFile(/*turbopackIgnore: true*/ requirePrivateLocalPath(key));
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") {
         return null;

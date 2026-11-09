@@ -51,7 +51,7 @@ test("skips photos on another storage backend, samples, and unresolvable URLs", 
     r2,
   );
   assert.equal(onLocal.action, "skip");
-  assert.match(onLocal.reason, /stored on local but STORAGE_BACKEND=r2/);
+  assert.match(onLocal.reason ?? "", /stored on local but STORAGE_BACKEND=r2/);
 
   assert.equal(
     planOriginalMigration({ originalUrl: "", source: "sample" }, local).action,
@@ -63,7 +63,7 @@ test("skips photos on another storage backend, samples, and unresolvable URLs", 
     r2,
   );
   assert.equal(foreign.action, "skip");
-  assert.match(foreign.reason, /cannot resolve original key/);
+  assert.match(foreign.reason ?? "", /cannot resolve original key/);
 });
 
 test("ignores an originalKey that is really a URL (old JSON -> Prisma imports)", () => {
