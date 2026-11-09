@@ -580,3 +580,57 @@
 1. After merge, Railway rebuilds: check Deploy / Build Logs for sharp install errors (e.g. missing linux-x64 binary), then upload one test photo (ideally a phone portrait) and check it on production, including its `opengraph-image`.
 2. Optional: backfill width/height for existing EXIF-rotated photos.
 3. Optional: bump tsx / typescript-eslint when fixes land for the dev-only advisories.
+
+---
+
+### Session #017 - 照片原圖移到私有 R2 bucket (2026-11-09)
+**Role**: Agent (Coding Agent)。不是 `features.json` 裡的 feature，`features.json` 沒有改。
+**Branch**: `feat/private-originals`（從 master `0fe8140`）
+
+**背景**：原圖 `uploads/<name>-original.webp`（WebP q92，已清 EXIF/GPS）和 large/medium/thumb 放在同一個公開 bucket `expose`。頁面上的 large 網址把 `-large` 換成 `-original` 就能下載全解析度原圖。使用者已在 Cloudflare 建好私有 bucket `expose-private`（沒開 public access 和 r2.dev），並讓現有 R2 token 對兩個 bucket 都有 Object Read & Write。
+
+**設計**：
+- 原圖寫到 `R2_PRIVATE_BUCKET_NAME`，用同一組 R2 憑證和 endpoint，key 不變（`uploads/<name>-original.webp`）。local（`STORAGE_BACKEND=local`）寫到 `storage/private/uploads/`，這個資料夾不在 `public/` 底下，已加進 .gitignore。
+- DB 的 `originalUrl` 欄位是必填（Prisma `String`），改存內部標記 `private:<key>`，`originalKey` 存 key。不改 schema，也不需要 migration。`originalUrl` 不是 `private:` 開頭的就是舊資料，原圖還在公開 storage。
+- `src/lib/storage/private-original.ts`：`toPrivateOriginalUrl` / `isPrivateOriginalUrl` / `privateKeyFromOriginalUrl`。`scripts/lib/private-originals.mjs` 是給 scripts 用的同一套邏輯，有測試確認兩邊的 prefix 一致。
+- `PrivateStorageDriver`（put/get/delete，沒有 URL）：`r2PrivateStorageDriver`、`localPrivateStorageDriver`。`provider.ts` 加了 `getPrivateStorageDriver(For)`、`assertPrivateStorageReady`，以及 server-only 的 `readPrivateOriginal(key)`。
+- `STORAGE_BACKEND=r2` 沒設 `R2_PRIVATE_BUCKET_NAME`，或設成和 `R2_BUCKET_NAME` 一樣時，上傳會在寫入任何檔案之前丟 `PrivateStorageConfigError`。後台看到的訊息是「伺服器尚未設定私有儲存空間（R2_PRIVATE_BUCKET_NAME）…」。
+- 刪除：`getPhotoStorageObjects` 回傳 `{ key, visibility }`。私有原圖從私有 storage 刪，舊資料的原圖照舊從公開 storage 刪。
+- `backfill-large-images.mjs`：私有原圖從私有 storage 讀，舊資料從公開 storage 讀。R2 改用簽章的 GET，不再 fetch 公開網址。
+- `migrate-local-uploads-to-r2.mjs`（舊的一次性腳本）：原圖一律傳到私有 bucket。
+- 刪掉沒有被使用的 `src/lib/uploads/upload-service.ts`（grep 確認沒有任何 import）。
+
+**一次性搬移腳本** `scripts/migrate-originals-private.mjs`（`npm run originals:migrate:private`）：
+- 預設是 dry-run，列出每張要搬的原圖和大小。加 `--apply` 才會實際執行。
+- 每張照片依序做：複製到私有 storage → 讀回來比對大小和 sha256 → 更新 DB → 刪掉公開 storage 的原圖。
+- 可以重跑：已經是 `private:` 的照片會跳過。如果上次在「更新 DB 之後、刪除之前」中斷，留下的公開檔會在確認私有那份存在之後刪掉（計入 cleaned）。如果公開檔已經不見、但私有那份存在，就直接補寫 DB。
+- 結束時印出 `Migrated / cleaned / skipped / failed`，有失敗時 exit code 是 1。
+- prisma 模式下，如果 `DATABASE_URL` 是 `file:` 但檔案不存在（例如在自己電腦上用 `railway run`）會直接拒絕執行。Railway 上要用 `railway ssh --service expose -- npm run originals:migrate:private`。
+
+**驗證**：
+- `.session/verify.ps1 -Feature "private-originals"` → ALL CHECKS PASSED（lint、tsc、build）。Build 只剩 `og-image.ts` 原本就有的 2 個 tracing warning；新的 local private driver 已加 `turbopackIgnore`。
+- `node --import tsx --test` 全部 157/157 通過。新增的測試涵蓋：key/URL 轉換、私有 bucket 沒設或和公開 bucket 同名時會報錯、搬移的計畫邏輯（搬移、已私有、其他 backend、樣本照片、無法解析、originalKey 其實是 URL）、刪除時區分 public/private、backfill 讀私有原圖、local 私有路徑防 traversal。
+- `dev-json-local`（port 3004），用暫時的 `.env.local` 放產生的測試管理員帳密（測完已刪除）：
+  - 上傳一張 3000×2000 的 JPEG：原圖只出現在 `storage/private/uploads/`，`public/uploads/` 只有 large/medium/thumb。紀錄的 `originalUrl` 是 `private:uploads/...-original.webp`。
+  - `/`、相簿頁、`?view=gallery&photo=`、照片頁、`/about`、`/sitemap.xml`、`/robots.txt` 都是 200，HTML 和 header 都沒有 `-original`。照片的 OG image 是 200 JPEG 1200×630。`/uploads/...-original.webp` 和 `/storage/private/...` 都回 404。console 和 server 都沒有錯誤。
+  - 移除這張的 large 後跑 `images:backfill:large`：從私有資料夾讀原圖，重新產生 2560×1707。另外 23 張舊資料從 public 讀，也都正常。
+  - 在後台刪除這張照片：私有原圖和三個公開衍生圖都刪掉了。
+  - 搬移腳本（本機舊資料 23 張）：dry-run 不改任何檔案。`--apply` 之前先模擬兩種中斷（只複製未更新 DB、公開檔已不見），結果 23 張全部搬完，私有檔和備份逐 byte 一致。之後把一張原圖放回 public，dry-run 顯示 `would clean 1`，`--apply` 刪掉它；再跑一次是 `Migrated 0, cleaned 0, skipped 23, failed 0`。搬移後各頁正常，舊的 `-original` 網址回 404。
+  - 測試完還原了 `data/photos.json`（git）和 `public/uploads/`（從備份），刪掉 `storage/`、`.env.local`、`.next-claude-dev`，tsconfig 自動加的路徑也已還原。
+- 沒有實際測：R2 模式（本機沒有 R2 憑證）。`STORAGE_BACKEND=r2` 沒設私有 bucket 時的報錯只有單元測試（`resolvePrivateBucketName`），沒有實際跑過上傳。
+
+**使用者要做的事（依序）**：
+1. Railway 設定 `R2_PRIVATE_BUCKET_NAME=expose-private`（合併前）。
+2. 合併 PR，等部署成功。
+3. 上傳一張測試照片，到 Cloudflare 確認原圖出現在 `expose-private`，`expose` 裡沒有這張的原圖。
+4. `railway ssh --service expose -- npm run originals:migrate:private`（dry-run），確認清單後再加 `-- --apply`。
+5. 拿一張舊照片的 large 網址，把 `-large` 改成 `-original`，應該回 404。
+
+**遺留問題**：
+- R2 公開 URL 可能有 CDN／瀏覽器快取（原圖的 Cache-Control 是 `immutable`、一年）。r2.dev 刪除後通常很快就回 404，但如果之後換成 custom domain + Cloudflare cache，可能需要 purge。
+- `railway ssh` 如果因為網路擋 port 而連不上，要換網路再試（runbook 有寫指令）。
+- 之後要用原圖重做浮水印或降低對外尺寸時，用 `readPrivateOriginal(key)`（server）或 scripts 的 `getR2Object(config, { key, bucket: getR2PrivateBucketName() })`。
+
+**下一步**：
+1. 照上面 1–5 的順序上線並搬移。
+2. 用私有原圖重做浮水印、降低對外的 large 尺寸。
