@@ -12,6 +12,17 @@ export class UploadStorageError extends Error {
   }
 }
 
+/**
+ * Thrown before an upload touches storage when originals have nowhere private to go
+ * (STORAGE_BACKEND=r2 without R2_PRIVATE_BUCKET_NAME). Never fall back to the public bucket.
+ */
+export class PrivateStorageConfigError extends UploadStorageError {
+  constructor(message = "R2_PRIVATE_BUCKET_NAME is not set; refusing to store photo originals in the public bucket.") {
+    super(message);
+    this.name = "PrivateStorageConfigError";
+  }
+}
+
 export class UploadProcessingError extends Error {
   constructor(message = "Image processing failed.") {
     super(message);
@@ -41,6 +52,10 @@ export function mapUploadErrorToMessage(error: unknown) {
 
   if (error instanceof UploadProcessingError) {
     return "照片處理失敗，請確認檔案格式後再試一次。";
+  }
+
+  if (error instanceof PrivateStorageConfigError) {
+    return "伺服器尚未設定私有儲存空間（R2_PRIVATE_BUCKET_NAME），原圖無法安全保存，已取消上傳。";
   }
 
   if (error instanceof UploadStorageError) {

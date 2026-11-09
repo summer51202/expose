@@ -1,18 +1,25 @@
 import { createHash, createHmac } from "node:crypto";
 
-import { UploadStorageError } from "@/lib/security/errors";
-import type { StorageDriver } from "@/lib/storage/types";
+import { PrivateStorageConfigError, UploadStorageError } from "@/lib/security/errors";
+import type { PrivateStorageDriver, StorageDriver } from "@/lib/storage/types";
 
 const R2_REGION = "auto";
 const R2_SERVICE = "s3";
 
-type R2Config = {
+type R2Credentials = {
   accountId: string;
   accessKeyId: string;
   secretAccessKey: string;
+  endpoint: string;
+};
+
+type R2Config = R2Credentials & {
   bucketName: string;
   publicBaseUrl: string;
-  endpoint: string;
+};
+
+type R2PrivateConfig = R2Credentials & {
+  bucketName: string;
 };
 
 function getRequiredEnv(name: string) {
@@ -25,7 +32,7 @@ function getRequiredEnv(name: string) {
   return value;
 }
 
-function getR2Config(): R2Config {
+function getR2Credentials(): R2Credentials {
   const accountId = getRequiredEnv("R2_ACCOUNT_ID");
   const endpoint = getRequiredEnv("R2_ENDPOINT");
   const endpointHost = new URL(endpoint).host;
@@ -38,10 +45,41 @@ function getR2Config(): R2Config {
     accountId,
     accessKeyId: getRequiredEnv("R2_ACCESS_KEY_ID"),
     secretAccessKey: getRequiredEnv("R2_SECRET_ACCESS_KEY"),
-    bucketName: getRequiredEnv("R2_BUCKET_NAME"),
-    publicBaseUrl: getRequiredEnv("R2_PUBLIC_BASE_URL").replace(/\/+$/, ""),
     endpoint,
   };
+}
+
+function getR2Config(): R2Config {
+  return {
+    ...getR2Credentials(),
+    bucketName: getRequiredEnv("R2_BUCKET_NAME"),
+    publicBaseUrl: getRequiredEnv("R2_PUBLIC_BASE_URL").replace(/\/+$/, ""),
+  };
+}
+
+/**
+ * The private bucket for photo originals. Throws (never falls back to the public bucket)
+ * when it is unset or is the public bucket itself.
+ */
+export function resolvePrivateBucketName(env: Record<string, string | undefined> = process.env) {
+  const privateBucket = env.R2_PRIVATE_BUCKET_NAME?.trim();
+
+  if (!privateBucket) {
+    throw new PrivateStorageConfigError();
+  }
+
+  if (privateBucket === env.R2_BUCKET_NAME?.trim()) {
+    throw new PrivateStorageConfigError(
+      "R2_PRIVATE_BUCKET_NAME must differ from R2_BUCKET_NAME (the public bucket).",
+    );
+  }
+
+  return privateBucket;
+}
+
+export function getR2PrivateConfig(): R2PrivateConfig {
+  const bucketName = resolvePrivateBucketName();
+  return { ...getR2Credentials(), bucketName };
 }
 
 function sha256Hex(input: string | Buffer) {
@@ -74,16 +112,16 @@ function buildPublicUrl(publicBaseUrl: string, key: string) {
   return `${publicBaseUrl}/${key.replace(/^\/+/, "")}`;
 }
 
-/** Sends an AWS SigV4-signed request for one object in the configured bucket. */
+/** Sends an AWS SigV4-signed request for one object in `config.bucketName`. */
 async function sendSignedObjectRequest(
-  config: R2Config,
+  config: R2Credentials & { bucketName: string },
   {
     method,
     key,
     body,
     extraHeaders = {},
   }: {
-    method: "PUT" | "DELETE";
+    method: "PUT" | "GET" | "DELETE";
     key: string;
     body?: Buffer;
     extraHeaders?: Record<string, string>;
@@ -180,6 +218,48 @@ export const r2StorageDriver: StorageDriver = {
     // S3/R2 return 204 for deletes, including keys that never existed.
     if (!response.ok && response.status !== 404) {
       throw new Error(`R2 delete failed for ${key} with ${response.status} ${response.statusText}.`);
+    }
+  },
+};
+
+export const r2PrivateStorageDriver: PrivateStorageDriver = {
+  async putObject({ key, body, contentType }) {
+    const config = getR2PrivateConfig();
+    const response = await sendSignedObjectRequest(config, {
+      method: "PUT",
+      key,
+      body,
+      extraHeaders: { "content-type": contentType },
+    });
+
+    if (!response.ok) {
+      throw new UploadStorageError(
+        `R2 private upload failed with ${response.status} ${response.statusText}.`,
+      );
+    }
+
+    return { key };
+  },
+  async getObject(key) {
+    const config = getR2PrivateConfig();
+    const response = await sendSignedObjectRequest(config, { method: "GET", key });
+
+    if (response.status === 404) {
+      return null;
+    }
+
+    if (!response.ok) {
+      throw new Error(`R2 private read failed for ${key} with ${response.status} ${response.statusText}.`);
+    }
+
+    return Buffer.from(await response.arrayBuffer());
+  },
+  async deleteObject(key) {
+    const config = getR2PrivateConfig();
+    const response = await sendSignedObjectRequest(config, { method: "DELETE", key });
+
+    if (!response.ok && response.status !== 404) {
+      throw new Error(`R2 private delete failed for ${key} with ${response.status} ${response.statusText}.`);
     }
   },
 };
