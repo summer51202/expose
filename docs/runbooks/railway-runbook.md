@@ -284,6 +284,7 @@ Everything the public sees is a derivative rendered from the private original by
   Nothing from the original's EXIF (camera, dates, **GPS**) is copied. Photo info shown on the site
   comes from the DB (`exifData`), not from the image files
 - **New uploads** get all of this immediately; nothing to run
+- What it looks like: `docs/runbooks/images/watermark-preview.jpg` (2048px large, landscape and portrait, plus 1:1 crops of the corner)
 - **DB `width` / `height`** are the original's displayed size (after EXIF rotation), not a derivative's
 
 ### Versioned keys
