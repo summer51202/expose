@@ -2,7 +2,8 @@ import sharp, { type Metadata, type Sharp } from "sharp";
 
 import { extractExifData, type ExifRecord } from "@/lib/photos/exif";
 import { UploadProcessingError } from "@/lib/security/errors";
-import { IMAGE_DERIVATIVES } from "@/lib/uploads/image-derivatives";
+import { siteConfig } from "@/config/site";
+import { IMAGE_DERIVATIVES, renderDerivative } from "@/lib/uploads/image-derivatives";
 import { validateImageMetadata } from "@/lib/uploads/upload-guards";
 
 type ProcessUploadInput = {
@@ -63,23 +64,16 @@ export async function processUpload({
   validateImageMetadata({ fileName, width, height });
   const exifData = await extractExifData(buffer);
 
-  const renderDerivative = ({ maxDimension, quality }: { maxDimension: number; quality: number }) =>
-    normalized
-      .clone()
-      .resize({
-        width: maxDimension,
-        height: maxDimension,
-        fit: "inside",
-        withoutEnlargement: true,
-      })
-      .webp({ quality })
-      .toBuffer();
+  // Public derivatives: resized, watermarked (large/medium) and carrying only the copyright
+  // EXIF (Artist/Copyright); none of the original's EXIF, such as GPS, is copied.
+  const render = (spec: (typeof IMAGE_DERIVATIVES)[keyof typeof IMAGE_DERIVATIVES]) =>
+    renderDerivative(normalized, spec, { photographerName: siteConfig.photographerName });
 
   try {
     const originalBuffer = await normalized.clone().webp({ quality: 92 }).toBuffer();
-    const largeBuffer = await renderDerivative(IMAGE_DERIVATIVES.large);
-    const mediumBuffer = await renderDerivative(IMAGE_DERIVATIVES.medium);
-    const thumbnailBuffer = await renderDerivative(IMAGE_DERIVATIVES.thumbnail);
+    const largeBuffer = await render(IMAGE_DERIVATIVES.large);
+    const mediumBuffer = await render(IMAGE_DERIVATIVES.medium);
+    const thumbnailBuffer = await render(IMAGE_DERIVATIVES.thumbnail);
     const blurBuffer = await normalized
       .clone()
       .resize({ width: 32, height: 32, fit: "inside", withoutEnlargement: true })

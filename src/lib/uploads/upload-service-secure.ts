@@ -10,6 +10,7 @@ import {
   getStorageBackend,
   getStorageDriver,
 } from "@/lib/storage/provider";
+import { currentDerivativeKeys, DERIVATIVE_CACHE_CONTROL } from "@/lib/uploads/image-derivatives";
 import { processUpload } from "@/lib/uploads/image-pipeline";
 import { getUploadBatchError } from "@/lib/uploads/upload-batch";
 import { getUploadSelectionError } from "@/lib/uploads/upload-selection";
@@ -69,6 +70,8 @@ export async function uploadPhotos({
       buffer: Buffer.from(await file.arrayBuffer()),
     });
     const storageRoot = `uploads/${processed.baseName}`;
+    // Versioned keys (`-large.v2.webp`); scripts/regenerate-derivatives.mjs moves older photos to them.
+    const derivativeKeys = currentDerivativeKeys(storageRoot);
     const [originalAsset, largeAsset, mediumAsset, thumbnailAsset] = await Promise.all([
       privateStorageDriver.putObject({
         key: `${storageRoot}-original.webp`,
@@ -76,22 +79,22 @@ export async function uploadPhotos({
         contentType: "image/webp",
       }),
       storageDriver.putObject({
-        key: `${storageRoot}-large.webp`,
+        key: derivativeKeys.large,
         body: processed.largeBuffer,
         contentType: "image/webp",
-        cacheControl: "public, max-age=31536000, immutable",
+        cacheControl: DERIVATIVE_CACHE_CONTROL,
       }),
       storageDriver.putObject({
-        key: `${storageRoot}-medium.webp`,
+        key: derivativeKeys.medium,
         body: processed.mediumBuffer,
         contentType: "image/webp",
-        cacheControl: "public, max-age=31536000, immutable",
+        cacheControl: DERIVATIVE_CACHE_CONTROL,
       }),
       storageDriver.putObject({
-        key: `${storageRoot}-thumb.webp`,
+        key: derivativeKeys.thumbnail,
         body: processed.thumbnailBuffer,
         contentType: "image/webp",
-        cacheControl: "public, max-age=31536000, immutable",
+        cacheControl: DERIVATIVE_CACHE_CONTROL,
       }),
     ]);
 
