@@ -672,3 +672,60 @@
 - `next dev` 會自動改 AGENTS.md、tsconfig.json，commit 前已還原。
 
 **下一步**：PR 合併後清掉 worktree：`git worktree remove .worktrees/protection`。真機確認長按不會出現存圖選單。
+
+### Session #018-B — 2026-11-09
+
+**任務**：後台照片管理加上編輯照片標題、描述、地點（單張和批次），把檔名式的標題改成有意義的文字，為了 SEO 和分享預覽。使用者指定，不在 features.json 內（未修改 features.json）。分支 `feat/admin-photo-edit`（worktree `.worktrees/photo-edit`）。
+
+**做了什麼**：
+- `src/lib/photos/photo-text.ts`（純函式，無 server-only）：
+  - 欄位上限 `PHOTO_TEXT_LIMITS`：標題 120、描述 1000、地點 120（以 code point 計算，emoji／中文都算 1 字）。一次最多 500 張（`PHOTO_TEXT_MAX_BATCH`）。
+  - `validatePhotoTextPatches`：驗證 client 傳來的資料。會 trim，標題和地點的換行會壓成空白，空標題不能存，description／location 空字串或 null 表示清除，未知的 key 會被丟掉，重複的 id 會拒絕。
+  - `diffPhotoText` / `collectPhotoTextPatches`：只回傳有改動的欄位。
+  - `applyPhotoTextPatches`：JSON manifest 用，沒改的 record 保留原物件。
+  - `looksLikeFilenameTitle`：判斷標題像不像檔名。規則包括：圖片副檔名、pexels／unsplash 等圖庫網站、IMG／DSC／PXL／frame 等開頭接數字、5 位以上的連續數字、12 字以上英數混合的 hash。上傳時檔名的 `_`／`-` 會被換成空白，所以這兩種寫法都有涵蓋。
+  - `filterPhotosForTextEdit`：依相簿篩選、只顯示像檔名的照片。判斷用的是已存的標題，不是草稿，所以編輯中的列不會突然消失。
+- `PhotoRepository.updatePhotoText(patches)`：
+  - JSON：讀一次、套用、寫一次。
+  - Prisma：先查哪些 id 存在，再用 `$transaction` 逐筆 update，最後回傳更新後的資料。
+  - 順手修正：Prisma 的 mapper 原本沒有讀寫 `location`（schema 有這個欄位），現在 `mapPhotoRecordFromPrisma` 和 `mapPhotoCreateInput` 都有了。
+- `savePhotoTextAction(input)`（`src/app/admin/photo-actions.ts`）：
+  - 先 `requireAdminSession()`，再驗證，接著確認所有 id 都存在（有任何一張不存在就整批拒絕），然後寫入。
+  - revalidate：`/`、`/about`、`/sitemap.xml`、`/admin/photos`、相關的 `/albums/<slug>`，以及 `/photos/uploaded/<id>`（用 `"layout"`，連照片的 opengraph-image 一起更新）。
+  - 回傳 `{ ok, message, saved }` 或 `{ ok: false, error }`。
+- UI：
+  - `PhotoManager` 上方多了模式切換：「管理照片」和「批次編輯文字」。兩個模式都保持 mount（用 `hidden` 切換），切換時不會丟掉未儲存的批次修改。原本的列表搬到 `PhotoListManager`。
+  - 單張編輯：每列有「編輯文字」按鈕，會展開 `PhotoTextEditor`。Esc 或「取消」可以關閉（有修改時會先確認）。列表上也會顯示地點和描述摘要。
+  - 批次編輯：`PhotoTextBatchEditor`。
+    - 每列有縮圖（點了在新分頁開照片頁）和三個欄位。改過的欄位是黃色框，加上「已修改」字樣和字數計數，每列可以「還原」。
+    - 可以依相簿篩選，也可以勾「只顯示標題像檔名」（旁邊顯示張數）。一次顯示 40 張，可以按「再顯示」載入更多。
+    - 底部固定一條儲存列：顯示幾張有修改、幾張需要修正，按鈕有「全部還原」和「儲存 N 張」。只送有改動的欄位。存檔時如果某列又被改了（草稿物件 identity 改變），那列的草稿會保留。
+  - `use-unsaved-changes-warning.ts`：有修改時掛 `beforeunload`，另外在 capture phase 攔截同源 `<a>` 的點擊並跳 confirm（Next Link 的 client-side 導覽不會觸發 beforeunload）。
+  - 共用欄位元件 `photo-text-fields.tsx`。手機上 input 用 `text-base`，避免 iOS 聚焦時自動放大。
+
+**驗證**：
+- `verify.ps1 -Feature "admin-photo-edit"` → ALL CHECKS PASSED（lint、tsc、build）。Build 只剩 `og-image.ts` 原本就有的 2 個 warning；lint 只剩原本就有的 2 個 unused-vars warning。
+- `node --import tsx --test`（全部 src + scripts 測試）173/173 通過。新增 16 個測試：
+  - `photo-text.test.ts`：像檔名判斷（正反例）、diff、驗證（trim、空標題、長度、null 清除、格式錯誤）、套用 patch、篩選。
+  - `repository-photo-text.test.ts`：在暫存目錄用子程序跑**真正的** JSON repository（用 `module.registerHooks` 把 `server-only` 對應到空檔案），確認只有指定的照片和欄位被寫入、不存在的 id 會略過。
+- port 3012 實測（json backend；用暫時的 `.env.local` 放產生的測試管理員帳密，測完已刪除）：
+  - 單張編輯：存檔後列表立即更新。照片頁的 `<title>`、`og:title`、`og:description`、`meta description`、圖片 alt 都變成新文字，OG 圖片 200 image/jpeg。輸入時前後的空白有被 trim 掉。資料檔語意比對結果：只有這張照片變了。
+  - 離開提醒：有草稿時點後台導覽連結會跳出 confirm，選取消後留在原頁；`beforeunload` 也有 preventDefault。
+  - 批次編輯 3 張（兩張改標題、其中一張也改地點、一張只改描述）：攔截到的 request body 只含改動的欄位，資料檔也只有這 3 張的這些欄位變了。
+  - 篩選：相簿 3／未分類 16／全部 23 張，和資料一致。改好 2 個標題後，「像檔名」的數量從 23 變 21，只改描述的那張仍在列表中。
+  - 空標題：UI 顯示錯誤並停用儲存鈕；繞過 UI 直接打 action，空標題、121 字、不存在的 id 都會被拒絕。
+  - 未登入：沒有 cookie 和偽造 cookie 直接 POST action，都回 `x-action-redirect: /admin/login`，資料沒有改變。
+  - 手機寬度 375：沒有水平捲動，欄位改成上下排列，儲存列固定在底部。
+  - 測完已還原 `data/photos.json`、`AGENTS.md`，刪掉 `.next-wt-b`。
+- 沒有實測：Prisma backend（本機沒有 Postgres；Prisma 的寫法沿用既有 update 的 pattern，tsc 通過）。
+
+**遺留問題**：
+- 瀏覽器的「上一頁」（popstate）不會觸發未儲存提醒，只有連結點擊、重新整理、關閉分頁會。
+- `scripts/migrate-json-to-prisma.mjs` 沒確認有沒有搬 `location`（scripts/ 由另一個 session 負責，這次沒動）。正式站目前沒有照片有 location，影響不大。
+- 「像檔名」是啟發式判斷，可能少數誤判（例如標題是一串 5 位數以上的數字）。
+- `preview_start` 只讀主目錄的 `.claude/launch.json`，worktree 的 server 改用背景指令啟動。
+
+**下一步**：
+1. PR 合併、部署後，到正式站後台用「批次編輯文字」＋「只顯示標題像檔名」把標題改好。
+2. 如果之後要換自訂網域，最好先換網域再大量改標題（避免搜尋引擎和分享快取記到舊網址）。
+3. PR 合併後清掉 worktree：`git worktree remove .worktrees/photo-edit`。
