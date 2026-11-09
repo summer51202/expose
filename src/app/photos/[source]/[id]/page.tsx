@@ -168,7 +168,6 @@ export default async function PhotoViewerPage({ params, searchParams }: PhotoVie
           <PhotoStage
             photo={photo}
             priority
-            disableContextMenu
             variant="large"
             // Left column of the lg:grid-cols-[1.4fr_0.6fr] grid inside max-w-7xl.
             sizes="(min-width: 1280px) 812px, (min-width: 1024px) 62vw, 100vw"

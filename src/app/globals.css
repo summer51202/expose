@@ -50,3 +50,15 @@ a:not([class]) {
 ::selection {
   background: rgba(215, 160, 71, 0.28);
 }
+
+/*
+ * Download deterrents for public photos (see ImageGuard). Scoped to the guarded
+ * subtree so the rest of the page keeps normal text selection.
+ */
+.image-guard,
+.image-guard img {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
