@@ -634,3 +634,18 @@
 **下一步**：
 1. 照上面 1–5 的順序上線並搬移。
 2. 用私有原圖重做浮水印、降低對外的 large 尺寸。
+
+**正式站上線結果（2026-11-09，同一個 session）**：
+- 使用者在 Railway 設好 `R2_PRIVATE_BUCKET_NAME=expose-private`。第一次查的時候還讀不到，因為變數改動停在 staged 狀態，按下 Deploy 後才生效。
+- PR #22 合併，部署 4c667a55 SUCCESS。
+- 用內建瀏覽器（使用者自己登入）上傳一張測試照片 `zz-prod-check-delete-me` 到「2025滑雪的東京」：
+  - DB 的 `originalUrl` 是 `private:uploads/...-original.webp`。
+  - 公開 r2.dev 上的 `-original` 回 404，large/medium/thumb 回 200。
+  - 使用者在 Cloudflare 確認原圖出現在 `expose-private`。
+  - 相簿頁、gallery、照片頁都是 200，沒有 `-original`。OG image 200 JPEG。
+- 在後台刪除這張照片：公開檔都回 404，照片頁 404。使用者確認 `expose-private` 裡的原圖也消失了。
+- 使用者用 `railway ssh --service expose -- npm run originals:migrate:private`（先 dry-run，再 `-- --apply`）搬移：`Migrated 991, cleaned 0 leftover public copies, skipped 0, failed 0. (of 991 photos)`。
+- 抽查首頁、`/about`、相簿 `2025-6` 的 79 張舊照片：large 全部 200，把 `-large` 換成 `-original` 全部 404。
+- 注意：Claude Code 自動模式不允許 agent 用 `railway ssh` 在正式容器裡執行指令（包括只讀的檢查），所以 bucket 內容由使用者在 Cloudflare 確認，搬移腳本也由使用者執行。
+
+**下一步**：用 `expose-private` 的原圖重做浮水印、降低對外的 large 尺寸。備份時要包含 `expose-private`（它是唯一的全解析度副本）。
