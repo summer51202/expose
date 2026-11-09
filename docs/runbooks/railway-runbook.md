@@ -34,8 +34,11 @@ DATABASE_URL=file:/data/expose.db
 - App code should not assume direct SQL access
 
 ### Object storage
-- Cloudflare R2 stores original, medium, and thumbnail image files
-- Public image rendering uses `R2_PUBLIC_BASE_URL`
+- Cloudflare R2, two buckets with the same API token and endpoint:
+  - `R2_BUCKET_NAME` (`expose`, public via `R2_PUBLIC_BASE_URL`): `uploads/<name>-large.webp`, `-medium.webp`, `-thumb.webp`
+  - `R2_PRIVATE_BUCKET_NAME` (`expose-private`, never public): `uploads/<name>-original.webp`
+- Originals have no URL. The DB stores `originalUrl = "private:<key>"` and `originalKey = <key>`; only server code reads them (GetObject), e.g. to regenerate derivatives
+- Photos uploaded before the private bucket existed keep a public `originalUrl` until `npm run originals:migrate:private -- --apply` moves them (see "Private Originals" below)
 
 ---
 
@@ -74,6 +77,7 @@ R2_ACCOUNT_ID=<cloudflare-account-id>
 R2_ACCESS_KEY_ID=<r2-access-key-id>
 R2_SECRET_ACCESS_KEY=<r2-secret-access-key>
 R2_BUCKET_NAME=expose
+R2_PRIVATE_BUCKET_NAME=expose-private
 R2_PUBLIC_BASE_URL=https://pub-xxxxxxxxxxxxxxxx.r2.dev
 R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
 SITE_URL=https://<your-public-domain>
@@ -86,6 +90,7 @@ Notes:
 - Railway does not automatically use your local `.env`
 - Every production variable must be added in Railway
 - `AUTH_SECRET` is required for session/cookie signing
+- `R2_PRIVATE_BUCKET_NAME` is required with `STORAGE_BACKEND=r2`. Without it (or if it equals `R2_BUCKET_NAME`) every upload fails with a clear error; originals are never written to the public bucket
 
 ### 4. Start Command (set in `.railway/railway.ts`)
 
@@ -105,7 +110,8 @@ railway config apply   # writes the change to the service settings
 - Always read the plan first. It must not show deleted variables, a removed GitHub source or a detached volume. Variables are `preserve()` in the file, so secret values are never committed.
 - Windows: the `railway` npm SDK runs `$_ --version` (or `railway --version`) to check the CLI and fails with "requires Railway CLI 5.42.1 or newer" when it finds only npm's shim. Point it at the real exe first: `$env:_ = "$env:APPDATA
 pm
-ode_modules@railwaycliinailway.exe"` (PowerShell) or `_=<that path> railway config plan` (Git Bash).
+ode_modules@railwaycliin
+ailway.exe"` (PowerShell) or `_=<that path> railway config plan` (Git Bash).
 - If the dashboard is changed by hand, run `railway config pull --force` and commit the result, so the file does not undo it on the next apply.
 
 Why:
@@ -199,6 +205,64 @@ Use when:
 
 ---
 
+## Private Originals
+
+Originals (`*-original.webp`, full resolution, WebP q92, EXIF/GPS stripped) live in a private
+bucket so nobody can download them by changing `-large` to `-original` in an image URL.
+
+### Private bucket rules (Cloudflare R2)
+- Bucket `expose-private`, Standard storage class
+- **Public access: off. r2.dev subdomain: off. Custom domain: none.** Never turn any of these on; that would make originals downloadable again
+- The R2 API token used by Railway (`R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`) must have **Object Read & Write on both `expose` and `expose-private`**. Same token, same `R2_ENDPOINT`
+
+### Railway variables
+- Add `R2_PRIVATE_BUCKET_NAME=expose-private` **before** deploying code that uses it (uploads fail without it)
+- Nothing else changes: `R2_BUCKET_NAME`, `R2_PUBLIC_BASE_URL`, the keys and endpoint stay as they are
+
+### Local development
+- `STORAGE_BACKEND=local` writes originals to `storage/private/uploads/` (gitignored, outside `public/`, so Next never serves them). Derivatives stay in `public/uploads/`
+
+### One-off: move existing originals (`scripts/migrate-originals-private.mjs`)
+
+Run it **inside the Railway service**, where `DATABASE_URL=file:/data/expose.db` points at the
+mounted `/data` volume. Do **not** use `railway run` for this: it runs on your own machine with
+Railway's variables, and `/data/expose.db` does not exist there (the script refuses to start in
+that case).
+
+From the repo folder (already linked with `railway link`; project expose / production / service expose):
+
+```bash
+# 0. confirm you are in the container and the DB is the volume
+railway ssh --service expose -- sh -c 'echo $DATABASE_URL; ls -l /data/expose.db'
+
+# 1. dry run (default): lists each original that would move, with its size
+railway ssh --service expose -- npm run originals:migrate:private
+
+# 2. after checking the list: move them
+railway ssh --service expose -- npm run originals:migrate:private -- --apply
+```
+
+(Or open a shell with `railway ssh --service expose`, then run `npm run originals:migrate:private`
+and `npm run originals:migrate:private -- --apply` in `/app`.)
+
+What `--apply` does for each photo, in order:
+1. reads the original from `expose` and writes it to `expose-private` (same key)
+2. reads the private copy back and checks size and sha256 match
+3. updates the DB row: `originalUrl = "private:<key>"`, `originalKey = <key>`
+4. deletes the original from `expose`
+
+It ends with `Migrated N, cleaned N leftover public copies, skipped N, failed N`. Exit code is 1 if
+anything failed. It is safe to re-run after an interruption: photos already marked private are
+skipped, and a public copy left behind (crash between steps 3 and 4) is deleted once the private
+copy is confirmed. A failed photo is left untouched in the DB and in `expose`.
+
+### Verify afterwards
+- Take a `-large.webp` URL of an old photo from a page, change `-large` to `-original`: it must return 404
+- In Cloudflare, `expose` should have no `*-original.webp` objects left; `expose-private` should have one per photo
+- `npm run images:backfill:large` reads originals from the private bucket from now on
+
+---
+
 ## Required Backups
 
 At minimum document and protect:
@@ -208,6 +272,7 @@ At minimum document and protect:
 
 ### R2
 - Keep bucket/key conventions documented
+- `expose-private` holds the only full-resolution copies (originals); back it up, and do not delete it when cleaning up
 - Rotate credentials if they were ever exposed
 
 ---
