@@ -14,6 +14,8 @@ import {
   type PhotoFeaturedState,
   type PhotoMoveState,
 } from "@/app/admin/photo-actions";
+import { PhotoTextBatchEditor } from "@/components/admin/photo-text-batch-editor";
+import { PhotoTextEditor } from "@/components/admin/photo-text-editor";
 import { Button } from "@/components/ui/button";
 import { removePhotoIdsFromSelection } from "@/lib/photos/photo-selection";
 import type { PhotoRecord } from "@/types/photo";
@@ -62,6 +64,8 @@ function PhotoMoveRow({
     initialFeaturedState,
   );
   const isFeatured = photo.featured === true;
+  const [editingText, setEditingText] = useState(false);
+  const [textMessage, setTextMessage] = useState("");
 
   useEffect(() => {
     if (state.resetKey) {
@@ -113,7 +117,11 @@ function PhotoMoveRow({
             </h3>
             <p className="mt-1 text-sm text-stone-600">
               目前相簿：{photo.albumName ?? "尚未分類"}
+              {photo.location ? `・${photo.location}` : null}
             </p>
+            {photo.description ? (
+              <p className="mt-1 line-clamp-2 text-sm text-stone-500">{photo.description}</p>
+            ) : null}
           </div>
           <Link
             href={`/photos/uploaded/${photo.id}`}
@@ -123,7 +131,29 @@ function PhotoMoveRow({
           </Link>
         </div>
 
+        {editingText ? (
+          <PhotoTextEditor
+            photo={photo}
+            onClose={() => setEditingText(false)}
+            onSaved={(message) => {
+              setEditingText(false);
+              setTextMessage(message);
+            }}
+          />
+        ) : null}
+
         <div className="flex flex-wrap items-center gap-2">
+          {editingText ? null : (
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setTextMessage("");
+                setEditingText(true);
+              }}
+            >
+              編輯文字
+            </Button>
+          )}
           <form action={formAction} className="flex flex-wrap items-center gap-2">
             <select
               name="albumId"
@@ -173,6 +203,7 @@ function PhotoMoveRow({
           </form>
         </div>
 
+        {textMessage ? <p className="text-sm text-emerald-700">{textMessage}</p> : null}
         {state.error ? <p className="text-sm text-rose-700">{state.error}</p> : null}
         {state.success ? <p className="text-sm text-emerald-700">{state.success}</p> : null}
         {featuredState.error ? <p className="text-sm text-rose-700">{featuredState.error}</p> : null}
@@ -186,6 +217,48 @@ function PhotoMoveRow({
 }
 
 export function PhotoManager({ photos, albums }: PhotoManagerProps) {
+  const [mode, setMode] = useState<"manage" | "text">("manage");
+
+  if (photos.length === 0) {
+    return (
+      <p className="rounded-lg border border-line bg-white/85 px-4 py-4 text-sm text-stone-600">
+        目前還沒有上傳照片。先到上傳照片頁新增作品，這裡就會出現完整管理清單。
+      </p>
+    );
+  }
+
+  return (
+    <div className="grid gap-4">
+      <div role="tablist" aria-label="照片管理模式" className="flex flex-wrap gap-2">
+        {(
+          [
+            ["manage", "管理照片"],
+            ["text", "批次編輯文字"],
+          ] as const
+        ).map(([value, label]) => (
+          <Button
+            key={value}
+            role="tab"
+            aria-selected={mode === value}
+            variant={mode === value ? "primary" : "secondary"}
+            onClick={() => setMode(value)}
+          >
+            {label}
+          </Button>
+        ))}
+      </div>
+      {/* Both stay mounted so switching modes keeps unsaved batch edits. */}
+      <div hidden={mode !== "manage"}>
+        <PhotoListManager photos={photos} albums={albums} />
+      </div>
+      <div hidden={mode !== "text"}>
+        <PhotoTextBatchEditor photos={photos} albums={albums} />
+      </div>
+    </div>
+  );
+}
+
+function PhotoListManager({ photos, albums }: PhotoManagerProps) {
   const [filterAlbumId, setFilterAlbumId] = useState("all");
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<number[]>([]);
   const [selectedAfterBulkResetKey, setSelectedAfterBulkResetKey] = useState("");
@@ -269,14 +342,6 @@ export function PhotoManager({ photos, albums }: PhotoManagerProps) {
 
       return Array.from(new Set([...currentSelection, ...visiblePhotoIds]));
     });
-  }
-
-  if (photos.length === 0) {
-    return (
-      <p className="rounded-lg border border-line bg-white/85 px-4 py-4 text-sm text-stone-600">
-        目前還沒有上傳照片。先到上傳照片頁新增作品，這裡就會出現完整管理清單。
-      </p>
-    );
   }
 
   return (
