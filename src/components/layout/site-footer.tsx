@@ -28,7 +28,8 @@ export function SiteFooter({ theme = "light" }: SiteFooterProps) {
     >
       <div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-8 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-12">
         <p>
-          © {year} {siteConfig.photographerName}. All rights reserved.
+          © {year} {siteConfig.photographerName}. All rights reserved.{" "}
+          <span className="whitespace-nowrap">作品未經授權請勿使用。</span>
         </p>
 
         <div className="flex flex-wrap items-center gap-x-6 gap-y-3">

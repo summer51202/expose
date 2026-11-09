@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 
+import { ImageGuard } from "@/components/gallery/image-guard";
 import type { AlbumSlideshowPhoto } from "@/types/album";
 
 type AlbumCoverSlideshowProps = {
@@ -26,7 +27,7 @@ export function AlbumCoverSlideshow({ photos }: AlbumCoverSlideshowProps) {
   }, [hasMultiplePhotos, photos.length]);
 
   return (
-    <div className="absolute inset-0">
+    <ImageGuard className="absolute inset-0">
       {photos.map((photo, index) => {
         const isVisible = index === currentIndex;
 
@@ -45,6 +46,6 @@ export function AlbumCoverSlideshow({ photos }: AlbumCoverSlideshowProps) {
           />
         );
       })}
-    </div>
+    </ImageGuard>
   );
 }
