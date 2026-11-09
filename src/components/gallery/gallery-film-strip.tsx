@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
+import { ImageGuard } from "@/components/gallery/image-guard";
 import { cn } from "@/lib/utils";
 import type { PublicPhoto } from "@/types/photo";
 
@@ -67,16 +68,18 @@ export function GalleryFilmStrip({
               )}
               aria-label={`Go to photo ${index + 1}`}
             >
-              <Image
-                src={photo.thumbnailUrl}
-                alt=""
-                fill
-                sizes="72px"
-                draggable={false}
-                className="object-cover"
-                placeholder={photo.blurDataUrl ? "blur" : "empty"}
-                blurDataURL={photo.blurDataUrl}
-              />
+              <ImageGuard className="absolute inset-0">
+                <Image
+                  src={photo.thumbnailUrl}
+                  alt=""
+                  fill
+                  sizes="72px"
+                  draggable={false}
+                  className="object-cover"
+                  placeholder={photo.blurDataUrl ? "blur" : "empty"}
+                  blurDataURL={photo.blurDataUrl}
+                />
+              </ImageGuard>
             </button>
           ))}
         </div>

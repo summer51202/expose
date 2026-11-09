@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { FocusEvent, PointerEvent } from "react";
 
+import { ImageGuard } from "@/components/gallery/image-guard";
 import { siteConfig } from "@/config/site";
 import { buildPhotoDetailHref } from "@/lib/gallery/album-gallery-url";
 import { getDisplayImageUrl } from "@/lib/photos/display-image";
@@ -129,21 +130,23 @@ function PhotoLayer({ photo, isInitial, isIncoming, fading, onLoad, onError }: P
           )}
         />
       ) : (
-        <Image
-          src={getDisplayImageUrl(photo, "large")}
-          // Decorative: the caption link below names the current photo.
-          alt=""
-          fill
-          preload={isInitial}
-          loading={isInitial ? undefined : "eager"}
-          fetchPriority={isIncoming ? "low" : undefined}
-          draggable={false}
-          className="object-cover"
-          sizes="100vw"
-          placeholder={isInitial && photo.blurDataUrl ? "blur" : "empty"}
-          blurDataURL={isInitial ? photo.blurDataUrl : undefined}
-          ref={imgRef}
-        />
+        <ImageGuard className="absolute inset-0">
+          <Image
+            src={getDisplayImageUrl(photo, "large")}
+            // Decorative: the caption link below names the current photo.
+            alt=""
+            fill
+            preload={isInitial}
+            loading={isInitial ? undefined : "eager"}
+            fetchPriority={isIncoming ? "low" : undefined}
+            draggable={false}
+            className="object-cover"
+            sizes="100vw"
+            placeholder={isInitial && photo.blurDataUrl ? "blur" : "empty"}
+            blurDataURL={isInitial ? photo.blurDataUrl : undefined}
+            ref={imgRef}
+          />
+        </ImageGuard>
       )}
     </div>
   );

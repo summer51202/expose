@@ -683,3 +683,28 @@ ailway.json` in the main checkout, which is on an older master. It goes away aft
 2. `railway ssh --service expose -- npm run images:regenerate`（dry-run）→ `-- --apply --limit 1` 抽查 → `-- --apply`。
 3. 抽查舊照片：large 有浮水印、長邊 2048、舊網址（去掉 `.v2`）404；再跑 dry-run 應為 `would regenerate 0`。
 4. 清掉 worktree：`git worktree remove .worktrees/watermark`。
+
+---
+
+### Session #018-C — 2026-11-09
+
+**任務**：前台照片統一防下載（右鍵、拖曳、手機長按）＋頁尾版權聲明。使用者指定，不在 features.json 內（未修改 features.json）。分支 `feat/image-protection`（worktree `.worktrees/protection`）。
+
+**做了什麼**：
+- 新增 `src/components/gallery/image-guard.tsx`（`ImageGuard`，取代並刪除 `context-menu-guard.tsx`）：擋 `contextmenu`（也涵蓋 Android 長按選單）、擋 `dragstart`，加上 `image-guard` class。
+- `globals.css` 新增 `.image-guard, .image-guard img`：`-webkit-touch-callout: none`、`user-select: none`、`-webkit-user-drag: none`。只作用在圖片範圍，整頁文字仍可選取。
+- 套用位置：首頁 hero 輪播、相簿列（album-cover-slideshow）、照片牆／相簿頁格線（PhotoStage → PhotoCard）、照片頁（PhotoStage，移除 `disableContextMenu` prop，現在一律防護）、幻燈片（gallery-image-stage，收斂原本自己寫的 onContextMenu）、底部縮圖帶（gallery-film-strip）、/about（肖像與精選）。所有 `<Image>` 原本就有 `draggable={false}`。
+- 頁尾：`© {year} {photographerName}. All rights reserved. 作品未經授權請勿使用。`
+
+**驗證**：
+- `verify.ps1 -Feature "image-protection"` → ALL CHECKS PASSED（注意：在 PowerShell 用 `*>&1` 導向會讓 build 的 stderr 觸發 catch 而誤報失敗，要直接跑）。`node --import tsx --test` 157/157。
+- port 3013 實測（首頁、相簿頁、幻燈片、照片頁、/about）：每張 img 的 contextmenu、dragstart 都被 preventDefault，user-select 為 none、alt 保留；一般文字 user-select 為 auto，/about 段落可實際選取。送出的 CSS 原文含 touch-callout（桌面 Chromium 的 CSSOM 會丟掉這個屬性，所以只能看原文）。
+- 相簿卡片點擊可導覽；幻燈片鍵盤左右、縮圖點擊、`>` 按鈕都正常；照片頁從圖片上觸發 swipe 會換下一張、鍵盤左鍵換上一張。後台 `/admin/login` 200，後台沒有使用 ImageGuard。
+- 沒有實測：真機 iOS／Android 長按（只用手機尺寸模擬並確認 CSS）。
+
+**遺留問題**：
+- 右鍵在照片卡片（連結）上也不會出現選單，所以無法用右鍵「在新分頁開啟」；中鍵開新分頁仍可用。
+- 這些只能嚇阻，擋不住截圖、開發者工具或直接存取圖片網址。真正保護靠浮水印和降低對外尺寸（另一個 session）。
+- `next dev` 會自動改 AGENTS.md、tsconfig.json，commit 前已還原。
+
+**下一步**：PR 合併後清掉 worktree：`git worktree remove .worktrees/protection`。真機確認長按不會出現存圖選單。

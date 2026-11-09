@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { PageViewBeacon } from "@/components/analytics/page-view-beacon";
-import { ContextMenuGuard } from "@/components/gallery/context-menu-guard";
+import { ImageGuard } from "@/components/gallery/image-guard";
 import { SocialLinks } from "@/components/layout/social-links";
 import { Panel } from "@/components/ui/panel";
 import { SectionHeading } from "@/components/ui/section-heading";
@@ -131,8 +131,7 @@ export default async function AboutPage() {
         </div>
 
         {portrait ? (
-          <ContextMenuGuard
-            enabled
+          <ImageGuard
             className="relative w-full max-w-sm overflow-hidden rounded-[1.75rem] bg-stone-200"
             style={{ aspectRatio: `${portrait.width} / ${portrait.height}` }}
           >
@@ -147,7 +146,7 @@ export default async function AboutPage() {
               placeholder={portrait.blurDataUrl ? "blur" : "empty"}
               blurDataURL={portrait.blurDataUrl}
             />
-          </ContextMenuGuard>
+          </ImageGuard>
         ) : null}
       </section>
 
@@ -174,8 +173,7 @@ export default async function AboutPage() {
             {featured.map((photo) => (
               <li key={photo.id}>
                 <Link href={buildPhotoPath(photo)} className="group block">
-                  <ContextMenuGuard
-                    enabled
+                  <ImageGuard
                     className="relative aspect-square overflow-hidden rounded-[1.25rem] bg-stone-200"
                   >
                     <Image
@@ -188,7 +186,7 @@ export default async function AboutPage() {
                       placeholder={photo.blurDataUrl ? "blur" : "empty"}
                       blurDataURL={photo.blurDataUrl}
                     />
-                  </ContextMenuGuard>
+                  </ImageGuard>
                   <p className="mt-2 truncate text-sm text-stone-600 group-hover:text-stone-900">
                     {photo.title}
                   </p>
