@@ -19,8 +19,8 @@ async function sizeOf(buffer: Buffer) {
   return { width, height, format };
 }
 
-test("large derivative spec is 2560px webp q85", () => {
-  assert.equal(IMAGE_DERIVATIVES.large.maxDimension, 2560);
+test("large derivative spec is 2048px webp q85", () => {
+  assert.equal(IMAGE_DERIVATIVES.large.maxDimension, 2048);
   assert.equal(IMAGE_DERIVATIVES.large.quality, 85);
   assert.equal(IMAGE_DERIVATIVES.medium.maxDimension, 1200);
   assert.equal(IMAGE_DERIVATIVES.thumbnail.maxDimension, 400);
@@ -36,10 +36,10 @@ test("getFitInsideDimensions never enlarges", () => {
   assert.deepEqual(getFitInsideDimensions(2560, 2560, 2560), { width: 2560, height: 2560 });
 });
 
-test("processUpload renders a 2560px large derivative for big landscape photos", async () => {
+test("processUpload renders a 2048px large derivative for big landscape photos", async () => {
   const result = await processUpload({ fileName: "wide.jpg", buffer: await createImage(4000, 3000) });
 
-  assert.deepEqual(await sizeOf(result.largeBuffer), { width: 2560, height: 1920, format: "webp" });
+  assert.deepEqual(await sizeOf(result.largeBuffer), { width: 2048, height: 1536, format: "webp" });
   assert.deepEqual(await sizeOf(result.mediumBuffer), { width: 1200, height: 900, format: "webp" });
   assert.deepEqual(await sizeOf(result.thumbnailBuffer), { width: 400, height: 300, format: "webp" });
   assert.equal(result.width, 4000);
@@ -48,7 +48,7 @@ test("processUpload renders a 2560px large derivative for big landscape photos",
 test("processUpload limits the long edge of portrait photos", async () => {
   const result = await processUpload({ fileName: "tall.jpg", buffer: await createImage(3000, 5000) });
 
-  assert.deepEqual(await sizeOf(result.largeBuffer), { width: 1536, height: 2560, format: "webp" });
+  assert.deepEqual(await sizeOf(result.largeBuffer), { width: 1229, height: 2048, format: "webp" });
 });
 
 test("processUpload reports the displayed size of EXIF-rotated photos", async () => {

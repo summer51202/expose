@@ -528,7 +528,8 @@
 - `railway config plan --out <file>` (0 add / 1 change / 0 destroy) → `railway config apply --plan <file> --yes` → "Applied pinned Railway configuration." A new plan then says "already up to date". All 13 variables are still there.
 - The apply triggered a redeploy (b31ed09d, SUCCESS: "No pending migrations to apply", Next ready). The old container's log ends with `[start] next stopped after shutdown request (code 143); exiting 0` (Session #012 fix confirmed on Railway).
 - PR #17 merged (`53c95f0`); deploy afbdccdd SUCCESS, `/` and `/about` 200.
-- The "Config as Code is deprecated" line still shows in local `railway logs` output: it is the local CLI (stderr) finding `D:Projectexposeailway.json` in the main checkout, which is on an older master. It goes away after `git pull` there.
+- The "Config as Code is deprecated" line still shows in local `railway logs` output: it is the local CLI (stderr) finding `D:Projectexpose
+ailway.json` in the main checkout, which is on an older master. It goes away after `git pull` there.
 
 **Verification**:
 - `railway config plan` with the final file → 1 change, 0 destroy (see above).
@@ -649,6 +650,41 @@
 - 注意：Claude Code 自動模式不允許 agent 用 `railway ssh` 在正式容器裡執行指令（包括只讀的檢查），所以 bucket 內容由使用者在 Cloudflare 確認，搬移腳本也由使用者執行。
 
 **下一步**：用 `expose-private` 的原圖重做浮水印、降低對外的 large 尺寸。備份時要包含 `expose-private`（它是唯一的全解析度副本）。
+
+---
+
+## Session #018-A（2026-11-09）— 浮水印、large 2048px、版權 EXIF、重新產生腳本
+
+**分支／worktree**：`feat/watermark-derivatives`，`.worktrees/watermark`。features.json 沒有這個 feature，沒有改。
+
+**完成了什麼**：
+- `src/lib/uploads/derivative-render.mjs`：上傳和 scripts 共用的渲染邏輯（純 ESM，TS 透過 `image-derivatives.ts` re-export）。`LARGE_MAX_DIMENSION=2048`、`DERIVATIVE_VERSION=2`、`WATERMARK` 設定物件（開關、文字 `© {name}`、透明度 0.6、字級 = 短邊 × 0.02、邊距 = 短邊 × 0.025、陰影、字型）、`COPYRIGHT_METADATA`。
+- 浮水印只加在 large、medium；thumbnail 不加。文字來自 `siteConfig.photographerName`（scripts 用 `scripts/lib/site-config.mjs` 解析 site.ts，有測試確認和 app 一致）。
+- 字型自帶 `src/lib/uploads/fonts/Geist-Regular.ttf`（OFL，取自 next 內附，授權在 `OFL.txt`），用 sharp text 的 `fontfile`，因為 Railway 容器沒有系統字型。
+- EXIF 用 sharp 0.35 `withExif({ IFD0: { Artist, Copyright } })`。讀回驗證：只有 Artist、Copyright，加上 libvips 一定會寫的 Orientation/解析度/YCbCrPositioning/像素尺寸；沒有 Make/Model/GPS/XMP/IPTC。libvips 把 `©` 存成 `(C)`（EXIF ASCII）。
+- 新上傳寫入版本化 key（`-large.v2.webp` 等）。DB 的 width/height 是原圖轉正後的尺寸（不是衍生圖），腳本仍會在不一致時修正。
+- `scripts/regenerate-derivatives.mjs`（`npm run images:regenerate`）：預設 dry-run，`--apply`、`--limit N`、`--only <id>`。每張：讀原圖 → 產生三張 → 上傳新 key → 更新 DB → 刪舊檔（永不刪原圖）。可重跑，DB 已更新但舊檔沒刪的情況會清掉遺留檔。支援 json/prisma、local/r2，prisma 模式下 `file:` DB 不存在會拒絕（要用 `railway ssh`）。
+- 移除 `scripts/backfill-large-images.mjs`（會產生沒浮水印的 large，功能已被取代）及其 npm script。
+- runbook 新增「Public Derivatives」章節；效果截圖 `docs/runbooks/images/watermark-preview.jpg`。
+
+**驗證**：
+- `.session/verify.ps1 -Feature "watermark-derivatives"` → ALL CHECKS PASSED（build 只有 og-image 原本就有的 2 個 tracing warning）。`node --import tsx --test` 167/167 通過。
+- port 3011（json + local，`NEXT_DIST_DIR=.next-wt-a`，暫時 `.env.local` 測試帳密，已刪）：從後台上傳 6000×4000 橫式與 4160×6240 直式（JPEG，含 GPS/Make）。large 2048×1365 / 1365×2048，medium 1200×800 / 800×1200，thumb 400×267 / 267×400，浮水印都在右下角、大小一致；三個檔的 EXIF 都只有 Artist/Copyright，沒有 GPS。原圖只在 `storage/private/`。
+- `/`、相簿頁、`?view=gallery&photo=`、兩張照片頁、`/about` 都是 200 且只引用 `.v2` 圖；`/opengraph-image`、照片與相簿 OG（相簿 OG 網址帶 hash）都是 200 JPEG。server 與 console 沒有錯誤。
+- 重新產生腳本（本機 23 張舊照片，原圖在 public/uploads）：dry-run 不改任何檔案；`--apply --limit 1` 只處理一張；模擬「DB 已更新、舊檔沒刪」後 dry-run 顯示 `would clean 1`；`--apply` 全部 22 張花 28 秒（Regenerated 22, cleaned 1）；再跑 dry-run 與 `--apply` 都是 `already current 25`。舊網址 404、`.v2` 200。測完已還原 `data/photos.json`、`public/uploads/`，刪掉 `storage/`。
+- 沒有實際測：R2 模式（本機沒有 R2 憑證），只有單元測試涵蓋 R2 的計畫邏輯。
+
+**遺留問題**：
+- R2 上的舊衍生圖刪除後，r2.dev 很快就 404；如果日後改用 custom domain + Cloudflare cache，舊網址可能要 purge。
+- 腳本是逐張依序處理，正式站約 991 張估計 20–45 分鐘；`railway ssh` 斷線就直接重跑。
+
+**下一步（PR 合併後）**：
+1. 等部署成功後上傳一張測試照片，確認有浮水印、`.v2` 網址。
+2. `railway ssh --service expose -- npm run images:regenerate`（dry-run）→ `-- --apply --limit 1` 抽查 → `-- --apply`。
+3. 抽查舊照片：large 有浮水印、長邊 2048、舊網址（去掉 `.v2`）404；再跑 dry-run 應為 `would regenerate 0`。
+4. 清掉 worktree：`git worktree remove .worktrees/watermark`。
+
+---
 
 ### Session #018-C — 2026-11-09
 
