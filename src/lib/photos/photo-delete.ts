@@ -1,3 +1,4 @@
+import { isPrivateOriginalUrl, privateKeyFromOriginalUrl } from "@/lib/storage/private-original";
 import type { PhotoRecord } from "@/types/photo";
 
 export function getPhotoDeleteError(photoIds: number[]): string | null {
@@ -28,33 +29,67 @@ function resolveAssetKey({ url, key }: StoredAsset, publicBaseUrl?: string) {
   return null;
 }
 
+export type PhotoStorageObject = {
+  key: string;
+  /** "private" = the original in private storage; "public" = every URL-served file. */
+  visibility: "public" | "private";
+};
+
+type PhotoStorageFields = Pick<
+  PhotoRecord,
+  | "originalUrl"
+  | "originalKey"
+  | "largeUrl"
+  | "largeKey"
+  | "mediumUrl"
+  | "mediumKey"
+  | "thumbnailUrl"
+  | "thumbnailKey"
+>;
+
 /**
- * Every storage key a photo owns (original, large, medium, thumbnail), so a delete
- * can remove all derivatives. Photos without a large derivative simply yield fewer keys.
+ * Every stored object a photo owns (original, large, medium, thumbnail) and where it lives,
+ * so a delete can remove all of them. Originals marked `private:<key>` are in private
+ * storage; legacy originals (a real URL) are still in public storage. Photos without a large
+ * derivative simply yield fewer objects.
  */
-export function getPhotoStorageKeys(
-  photo: Pick<
-    PhotoRecord,
-    | "originalUrl"
-    | "originalKey"
-    | "largeUrl"
-    | "largeKey"
-    | "mediumUrl"
-    | "mediumKey"
-    | "thumbnailUrl"
-    | "thumbnailKey"
-  >,
+export function getPhotoStorageObjects(
+  photo: PhotoStorageFields,
   publicBaseUrl?: string,
-): string[] {
-  const assets: StoredAsset[] = [
-    { url: photo.originalUrl, key: photo.originalKey },
+): PhotoStorageObject[] {
+  const objects: PhotoStorageObject[] = [];
+
+  if (isPrivateOriginalUrl(photo.originalUrl)) {
+    const key = photo.originalKey?.replace(/^\/+/, "") || privateKeyFromOriginalUrl(photo.originalUrl);
+    if (key) {
+      objects.push({ key, visibility: "private" });
+    }
+  } else {
+    const key = resolveAssetKey({ url: photo.originalUrl, key: photo.originalKey }, publicBaseUrl);
+    if (key) {
+      objects.push({ key, visibility: "public" });
+    }
+  }
+
+  const publicAssets: StoredAsset[] = [
     { url: photo.largeUrl, key: photo.largeKey },
     { url: photo.mediumUrl, key: photo.mediumKey },
     { url: photo.thumbnailUrl, key: photo.thumbnailKey },
   ];
-  const keys = assets
-    .map((asset) => resolveAssetKey(asset, publicBaseUrl))
-    .filter((key): key is string => Boolean(key));
+  for (const asset of publicAssets) {
+    const key = resolveAssetKey(asset, publicBaseUrl);
+    if (key) {
+      objects.push({ key, visibility: "public" });
+    }
+  }
 
-  return [...new Set(keys)];
+  const seen = new Set<string>();
+  return objects.filter((object) => {
+    const id = `${object.visibility}:${object.key}`;
+    if (seen.has(id)) {
+      return false;
+    }
+    seen.add(id);
+    return true;
+  });
 }

@@ -3,7 +3,13 @@ import path from "node:path";
 import { getAlbumOptions } from "@/lib/albums/queries";
 import { getPhotoRepository } from "@/lib/photos/repository";
 import { UploadStorageError, UploadValidationError } from "@/lib/security/errors";
-import { getStorageBackend, getStorageDriver } from "@/lib/storage/provider";
+import { toPrivateOriginalUrl } from "@/lib/storage/private-original";
+import {
+  assertPrivateStorageReady,
+  getPrivateStorageDriver,
+  getStorageBackend,
+  getStorageDriver,
+} from "@/lib/storage/provider";
 import { processUpload } from "@/lib/uploads/image-pipeline";
 import { getUploadBatchError } from "@/lib/uploads/upload-batch";
 import { getUploadSelectionError } from "@/lib/uploads/upload-selection";
@@ -49,8 +55,11 @@ export async function uploadPhotos({
     throw new UploadValidationError("找不到指定的相簿，請重新選擇後再試一次。");
   }
 
-  const storageDriver = getStorageDriver();
   const storageProvider = getStorageBackend();
+  // Originals go to private storage only; fail before writing anything if it is not set up.
+  assertPrivateStorageReady(storageProvider);
+  const storageDriver = getStorageDriver();
+  const privateStorageDriver = getPrivateStorageDriver();
 
   const records: PhotoRecord[] = [];
 
@@ -61,11 +70,10 @@ export async function uploadPhotos({
     });
     const storageRoot = `uploads/${processed.baseName}`;
     const [originalAsset, largeAsset, mediumAsset, thumbnailAsset] = await Promise.all([
-      storageDriver.putObject({
+      privateStorageDriver.putObject({
         key: `${storageRoot}-original.webp`,
         body: processed.originalBuffer,
         contentType: "image/webp",
-        cacheControl: "public, max-age=31536000, immutable",
       }),
       storageDriver.putObject({
         key: `${storageRoot}-large.webp`,
@@ -87,7 +95,7 @@ export async function uploadPhotos({
       }),
     ]);
 
-    if (!originalAsset.url || !largeAsset.url || !mediumAsset.url || !thumbnailAsset.url) {
+    if (!originalAsset.key || !largeAsset.url || !mediumAsset.url || !thumbnailAsset.url) {
       throw new UploadStorageError();
     }
 
@@ -98,7 +106,8 @@ export async function uploadPhotos({
       createdAt: new Date().toISOString(),
       width: processed.width,
       height: processed.height,
-      originalUrl: originalAsset.url,
+      // No public URL for originals: a `private:<key>` marker, the key is the source of truth.
+      originalUrl: toPrivateOriginalUrl(originalAsset.key),
       largeUrl: largeAsset.url,
       mediumUrl: mediumAsset.url,
       thumbnailUrl: thumbnailAsset.url,

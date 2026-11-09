@@ -12,6 +12,7 @@
     "data:verify:prisma": "node scripts/verify-prisma-import.mjs",
     "storage:migrate:r2": "node scripts/migrate-local-uploads-to-r2.mjs",
     "images:backfill:large": "node scripts/backfill-large-images.mjs",
+    "originals:migrate:private": "node scripts/migrate-originals-private.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",

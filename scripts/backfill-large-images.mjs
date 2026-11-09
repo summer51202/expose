@@ -4,7 +4,9 @@
 //   npm run images:backfill:large -- --dry-run # only list what would be processed
 //
 // Reads DATA_BACKEND (json | prisma) and STORAGE_BACKEND (local | r2) the same way the
-// app does. Safe to re-run: photos that already have largeUrl are skipped, and each
+// app does. Originals marked `private:<key>` are read from private storage
+// (R2_PRIVATE_BUCKET_NAME, or storage/private/ locally); legacy originals that have not
+// been moved by originals:migrate:private yet are read from public storage. Safe to re-run: photos that already have largeUrl are skipped, and each
 // photo is written back as soon as it is done.
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -12,7 +14,14 @@ import { pathToFileURL } from "node:url";
 
 import sharp from "sharp";
 
-import { getR2Config, putR2Object } from "./lib/r2-client.mjs";
+import {
+  getR2PrivateBucketName,
+  isPrivateOriginalUrl,
+  privateKeyFromOriginalUrl,
+  resolvePrivateLocalPath,
+  resolvePublicLocalPath,
+} from "./lib/private-originals.mjs";
+import { getR2Config, getR2Object, putR2Object } from "./lib/r2-client.mjs";
 import { loadEnvFile } from "./lib/script-env.mjs";
 
 // Keep in sync with IMAGE_DERIVATIVES.large in src/lib/uploads/image-derivatives.ts.
@@ -21,7 +30,6 @@ export const LARGE_WEBP_QUALITY = 85;
 const CACHE_CONTROL = "public, max-age=31536000, immutable";
 
 const projectRoot = process.cwd();
-const publicRoot = path.join(projectRoot, "public");
 const manifestPath = path.join(projectRoot, "data", "photos.json");
 
 /** Storage key of an asset: the stored key, else derived from a relative or R2 public URL. */
@@ -64,33 +72,35 @@ export function planBackfill(photo, { storageBackend, publicBaseUrl }) {
     };
   }
 
-  const originalKey = resolveStorageKey(photo.originalUrl, photo.originalKey, publicBaseUrl);
+  const originalPrivate = isPrivateOriginalUrl(photo.originalUrl);
+  const originalKey = originalPrivate
+    ? photo.originalKey?.replace(/^\/+/, "") || privateKeyFromOriginalUrl(photo.originalUrl)
+    : resolveStorageKey(photo.originalUrl, photo.originalKey, publicBaseUrl);
   if (!originalKey) {
     return { action: "skip", reason: `cannot resolve original key from ${photo.originalUrl}` };
   }
 
-  return { action: "process", originalKey, largeKey: deriveLargeKey(originalKey) };
+  return { action: "process", originalKey, originalPrivate, largeKey: deriveLargeKey(originalKey) };
 }
 
-function resolveLocalPath(key) {
-  const absolutePath = path.resolve(publicRoot, key);
-  const relative = path.relative(path.join(publicRoot, "uploads"), absolutePath);
-  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
-    throw new Error(`Refusing to touch local path outside public/uploads: ${key}`);
-  }
-  return absolutePath;
-}
+const resolveLocalPath = (key) => resolvePublicLocalPath(projectRoot, key);
 
-async function readOriginal(photo, plan, storageBackend) {
+/** Reads the original from private storage, or public storage for legacy photos. */
+async function readOriginal(plan, storageBackend, r2Config) {
   if (storageBackend === "local") {
-    return readFile(resolveLocalPath(plan.originalKey));
+    return readFile(
+      plan.originalPrivate
+        ? resolvePrivateLocalPath(projectRoot, plan.originalKey)
+        : resolveLocalPath(plan.originalKey),
+    );
   }
 
-  const response = await fetch(photo.originalUrl);
-  if (!response.ok) {
-    throw new Error(`Fetching original failed with ${response.status} ${response.statusText}`);
+  const bucket = plan.originalPrivate ? getR2PrivateBucketName() : r2Config.bucketName;
+  const original = await getR2Object(r2Config, { key: plan.originalKey, bucket });
+  if (!original) {
+    throw new Error(`Original ${plan.originalKey} not found in bucket ${bucket}`);
   }
-  return Buffer.from(await response.arrayBuffer());
+  return original;
 }
 
 export async function renderLarge(originalBuffer) {
@@ -204,7 +214,7 @@ async function main() {
       }
 
       try {
-        const original = await readOriginal(photo, plan, storageBackend);
+        const original = await readOriginal(plan, storageBackend, r2Config);
         const largeBuffer = await renderLarge(original);
         const { width, height } = await sharp(largeBuffer).metadata();
         const stored = await storeLarge(plan.largeKey, largeBuffer, storageBackend, r2Config);

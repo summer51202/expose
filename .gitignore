@@ -61,3 +61,6 @@ next-env.d.ts
 # dev-server output (dev-json-local dist dir and JSON-backend analytics rollups)
 /.next-claude-dev/
 /data/analytics-daily-*.json
+
+# photo originals in private storage (STORAGE_BACKEND=local); never under public/
+/storage/private/

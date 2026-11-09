@@ -33,6 +33,7 @@ test("planBackfill derives keys for legacy JSON photos without stored keys", () 
   assert.deepEqual(planBackfill({ originalUrl: "/uploads/a-original.webp" }, local), {
     action: "process",
     originalKey: "uploads/a-original.webp",
+    originalPrivate: false,
     largeKey: "uploads/a-large.webp",
   });
 });
@@ -68,4 +69,28 @@ test("renderLarge caps the long edge at 2560 and never enlarges", async () => {
 
   const small = await sharp(await renderLarge(await make(900, 600))).metadata();
   assert.deepEqual([small.width, small.height], [900, 600]);
+});
+
+test("planBackfill reads private originals from private storage", () => {
+  const plan = planBackfill(
+    {
+      originalUrl: "private:uploads/c-original.webp",
+      originalKey: "uploads/c-original.webp",
+      storageProvider: "r2",
+    },
+    { storageBackend: "r2", publicBaseUrl: "https://pub-1.r2.dev" },
+  );
+  assert.deepEqual(plan, {
+    action: "process",
+    originalKey: "uploads/c-original.webp",
+    originalPrivate: true,
+    largeKey: "uploads/c-large.webp",
+  });
+});
+
+test("planBackfill falls back to the key inside the private marker", () => {
+  const plan = planBackfill({ originalUrl: "private:uploads/d-original.webp" }, local);
+  assert.equal(plan.action, "process");
+  assert.equal(plan.originalKey, "uploads/d-original.webp");
+  assert.equal(plan.originalPrivate, true);
 });
