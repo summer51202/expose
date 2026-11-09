@@ -5,6 +5,15 @@ import path from "node:path";
 
 import { PrismaClient } from "@prisma/client";
 
+import {
+  getR2PrivateBucketName,
+  isPrivateOriginalUrl,
+  privateKeyFromOriginalUrl,
+  resolvePrivateLocalPath,
+  toPrivateOriginalUrl,
+} from "./lib/private-originals.mjs";
+import { putR2Object } from "./lib/r2-client.mjs";
+
 const prisma = new PrismaClient();
 const projectRoot = process.cwd();
 
@@ -171,14 +180,26 @@ function getLocalAbsolutePath(urlOrKey) {
   return path.join(projectRoot, "public", normalized);
 }
 
+/** Originals always go to the private bucket (never public), from storage/private or legacy public/. */
+async function migrateOriginal(config, photo) {
+  const privateOriginal = isPrivateOriginalUrl(photo.originalUrl);
+  const sourceKey = privateOriginal
+    ? photo.originalKey ?? privateKeyFromOriginalUrl(photo.originalUrl)
+    : photo.originalKey ?? photo.originalUrl;
+  const body = await readFile(
+    privateOriginal ? resolvePrivateLocalPath(projectRoot, sourceKey) : getLocalAbsolutePath(sourceKey),
+  );
+  const stored = await putR2Object(config, {
+    key: sourceKey,
+    body,
+    contentType: "image/webp",
+    bucket: getR2PrivateBucketName(),
+  });
+  return { key: stored.key, url: toPrivateOriginalUrl(stored.key) };
+}
+
 async function migratePhoto(config, photo) {
   const uploads = [
-    {
-      field: "original",
-      currentUrl: photo.originalUrl,
-      currentKey: photo.originalKey ?? photo.originalUrl,
-      contentType: "image/webp",
-    },
     {
       field: "medium",
       currentUrl: photo.mediumUrl,
@@ -202,7 +223,7 @@ async function migratePhoto(config, photo) {
     });
   }
 
-  const migrated = {};
+  const migrated = { original: await migrateOriginal(config, photo) };
 
   for (const asset of uploads) {
     const sourceKey = asset.currentKey ?? asset.currentUrl;
