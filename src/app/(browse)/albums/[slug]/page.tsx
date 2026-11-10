@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { PageViewBeacon } from "@/components/analytics/page-view-beacon";
 import { AlbumPhotoExperience } from "@/components/gallery/album-photo-experience";
 import { Panel } from "@/components/ui/panel";
+import { toAlbumPhoto, toSlimPhotos } from "@/lib/photos/photo-feed";
 import { getAlbumPageData } from "@/lib/photos/queries";
 import { baseOpenGraph, buildAlbumDescription, buildAlbumPath } from "@/lib/seo/metadata";
 
@@ -72,7 +73,13 @@ export default async function AlbumPage({ params }: AlbumPageProps) {
       </section>
 
       {photos.length > 0 ? (
-        <AlbumPhotoExperience albumName={album.name} albumSlug={album.slug} photos={photos} />
+        <AlbumPhotoExperience
+          albumName={album.name}
+          albumSlug={album.slug}
+          // Slim payload: the slideshow needs every photo, but not EXIF or descriptions,
+          // and only the first few carry a blur preview.
+          photos={toSlimPhotos(photos, toAlbumPhoto)}
+        />
       ) : (
         <section className="mt-8">
           <Panel>

@@ -8,6 +8,14 @@ import {
   filterAlbumPhotos,
   getScopedPhotoNeighbors,
 } from "@/lib/photos/photo-navigation";
+import {
+  type FeedPosition,
+  type GridPhoto,
+  paginateFeed,
+  sortFeedPhotos,
+  toGridPhoto,
+  toSlimPhotos,
+} from "@/lib/photos/photo-feed";
 import { getPhotoRepository } from "@/lib/photos/repository";
 import { samplePhotos } from "@/lib/photos/sample-photos";
 import type { GalleryPhoto, PhotoRecord, PublicPhoto } from "@/types/photo";
@@ -41,6 +49,26 @@ export async function getGalleryPhotos(): Promise<PublicPhoto[]> {
   }
 
   return toPublicPhotos(samplePhotos);
+}
+
+/** Every gallery photo in feed order (newest first, id breaks ties). */
+export async function getFeedPhotos(): Promise<PublicPhoto[]> {
+  return sortFeedPhotos(await getGalleryPhotos());
+}
+
+/**
+ * One batch of the home photo wall for `/api/photos`: slim grid payloads only,
+ * with the blur preview reserved for the server-rendered first page.
+ */
+export async function getPhotoFeedBatch(options: {
+  cursor: FeedPosition | null;
+  limit: number;
+}): Promise<{ photos: GridPhoto[]; nextCursor: string | null }> {
+  const page = paginateFeed(await getFeedPhotos(), options);
+  return {
+    photos: toSlimPhotos(page.items, toGridPhoto, 0),
+    nextCursor: page.nextCursor,
+  };
 }
 
 export async function getRecentUploads(limit = 6): Promise<PublicPhoto[]> {

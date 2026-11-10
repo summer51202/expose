@@ -2,10 +2,10 @@ import Image from "next/image";
 
 import { ImageGuard } from "@/components/gallery/image-guard";
 import { getDisplayImageUrl } from "@/lib/photos/display-image";
-import type { PublicPhoto } from "@/types/photo";
+import type { AlbumPhoto } from "@/lib/photos/photo-feed";
 
 type GalleryImageStageProps = {
-  photo: PublicPhoto;
+  photo: AlbumPhoto;
   priority?: boolean;
 };
 
@@ -39,7 +39,8 @@ export function GalleryImageStage({
           src={getDisplayImageUrl(photo, "large")}
           alt={photo.title}
           fill
-          priority={priority}
+          preload={priority}
+          loading={priority ? "eager" : "lazy"}
           draggable={false}
           className="object-contain"
           sizes="100vw"

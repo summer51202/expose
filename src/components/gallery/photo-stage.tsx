@@ -5,9 +5,18 @@ import { getDisplayImageUrl, type DisplayImageVariant } from "@/lib/photos/displ
 import { cn } from "@/lib/utils";
 import type { PublicPhoto } from "@/types/photo";
 
+export type StagePhoto = Pick<
+  PublicPhoto,
+  "id" | "source" | "title" | "width" | "height" | "mediumUrl"
+> &
+  Partial<Pick<PublicPhoto, "largeUrl" | "blurDataUrl">>;
+
 type PhotoStageProps = {
-  photo: PublicPhoto;
+  photo: StagePhoto;
+  /** Preloads the image via a <link> in <head>: only for the page's LCP photo. */
   priority?: boolean;
+  /** Skip native lazy loading (first cards of the photo wall). */
+  eager?: boolean;
   /** Grid cards stay on `medium`; the photo detail page asks for `large`. */
   variant?: DisplayImageVariant;
   /** Rendered width hint for next/image; defaults to the grid card layout. */
@@ -28,6 +37,7 @@ const sampleGradients = [
 export function PhotoStage({
   photo,
   priority = false,
+  eager = false,
   variant = "medium",
   sizes = GRID_CARD_SIZES,
 }: PhotoStageProps) {
@@ -36,7 +46,8 @@ export function PhotoStage({
 
   return (
     <ImageGuard
-      className="relative w-full overflow-hidden rounded-[1.25rem]"
+      // The stone background is the loading placeholder for photos without a blur preview.
+      className="relative w-full overflow-hidden rounded-[1.25rem] bg-stone-200"
       style={{ aspectRatio: `${photo.width} / ${photo.height}` }}
     >
       {isSample ? (
@@ -48,7 +59,8 @@ export function PhotoStage({
           src={getDisplayImageUrl(photo, variant)}
           alt={photo.title}
           fill
-          priority={priority}
+          preload={priority}
+          loading={priority || eager ? "eager" : "lazy"}
           draggable={false}
           className="object-cover"
           sizes={sizes}
