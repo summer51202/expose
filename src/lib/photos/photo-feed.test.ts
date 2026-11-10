@@ -6,6 +6,7 @@ import {
   buildFeedPageHref,
   decodeFeedCursor,
   encodeFeedCursor,
+  type FeedPage,
   getNumberedFeedPage,
   paginateFeed,
   parseLimitParam,
@@ -176,11 +177,11 @@ test("cursor round-trips and rejects malformed input", () => {
 test("paginateFeed walks the whole feed with no repeats or gaps", () => {
   const sorted = sortFeedPhotos(makeFeed(103));
   const seen: number[] = [];
-  let cursor = null;
+  let cursor: string | null = null;
   let calls = 0;
 
   do {
-    const page = paginateFeed(sorted, { cursor: decodeFeedCursor(cursor), limit: 24 });
+    const page: FeedPage<Item> = paginateFeed(sorted, { cursor: decodeFeedCursor(cursor), limit: 24 });
     seen.push(...page.items.map((item) => item.id));
     cursor = page.nextCursor;
     calls += 1;

@@ -61,6 +61,9 @@ export function PhotoStage({
           fill
           preload={priority}
           loading={priority || eager ? "eager" : "lazy"}
+          // Eager wall cards sit below the full-screen hero: fetch them early (React
+          // also emits a preload for non-lazy images) but after the hero's LCP image.
+          fetchPriority={!priority && eager ? "low" : undefined}
           draggable={false}
           className="object-cover"
           sizes={sizes}
