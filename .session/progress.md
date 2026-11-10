@@ -812,3 +812,74 @@ ailway.json` in the main checkout, which is on an older master. It goes away aft
 **遺留問題／下一步**：
 - `expose-private/uploads/`（原圖）還沒有備份到 R2 以外的地方。
 - 清理舊備份失敗時，備份本身還是算成功，log 會出現 `retention cleanup failed`，後台清單也會顯示錯誤。
+
+---
+
+### Session #019 - P2-LAZYLOAD 照片懶載入：首頁分批載入、精簡 payload (2026-11-10)
+**Role**: Agent (Coding Agent)
+**Branch**: `feat/P2-LAZYLOAD`（worktree `.worktrees/lazyload`，從 master `358002e`）
+
+**問題**：正式站約 991 張照片，首頁 HTML 5.56 MB。`getGalleryPhotos()` 的全部照片都交給照片牆一次 render，每張都有 next/image `placeholder="blur"`，base64 在 HTML 和 RSC payload 各出現一次。
+
+**設計**：
+- `src/lib/photos/photo-feed.ts`（純函式，可單元測試）：
+  - payload 白名單：`GridPhoto`（grid 卡片）、`AlbumPhoto`（加 `thumbnailUrl`，給幻燈片和底片條）、`HeroPhoto`。沒有 originalUrl、exifData、description、featured、albumId、createdAt。
+  - `toSlimPhotos` 只讓前 `BLUR_PLACEHOLDER_LIMIT`（6）張帶 blur。
+  - 排序 `sortFeedPhotos`：createdAt desc，同時間用 id desc。和以前一樣新的在前，只是同時間的照片順序變成固定。
+  - keyset cursor `<ms>.<id>`：中途有新增或刪除照片，也不會重複或漏掉已經捲過的部分。
+  - `getNumberedFeedPage` 給 `/?page=N` 用。`parsePageParam`、`parseLimitParam`（最多 48）。
+- `GET /api/photos?cursor=&limit=`（`src/app/api/photos/route.ts`）：回傳 `{ photos: GridPhoto[], nextCursor }`。cursor 格式錯誤回 400，`Cache-Control: no-store`。API 回的照片都不帶 blur。
+- 首頁 `src/app/(browse)/page.tsx`：
+  - 只 SSR 前 24 張（`PHOTO_FEED_PAGE_SIZE`）。
+  - `?page=N`（N>1）只顯示照片牆：沒有 hero、相簿列、beacon，有「← Newer photos」(rel=prev) 連結，canonical 是 `/?page=N`，title 是「Latest Work — Page N」。
+  - 超出範圍的頁數回 404。格式錯的 `?page=abc` 當成第 1 頁，canonical 是 `/`。
+- `PhotoWallFeed`（client）：
+  - 每一批是獨立的 CSS columns 區塊，新加的照片不會讓上面的卡片重新排列。
+  - 哨兵 + IntersectionObserver（rootMargin 下方 1200px）自動載入。
+  - 「Load more」是 `<a href="/?page=N+1">`：有 JS 時攔截點擊改成 fetch，ctrl／cmd 點擊照常開新分頁。
+  - 失敗時停止自動載入，只能按按鈕重試。用 key 去重。
+- 圖片：
+  - 照片牆前 3 張 `loading="eager"` + `fetchPriority="low"`。React 19 會替非 lazy 的 `<img>` 自動加 preload，低優先度可以避免它和 hero 的 LCP 圖搶頻寬。其餘都是原生 lazy。
+  - `PhotoStage` 外框加 `bg-stone-200` 當 placeholder。
+  - Next 16 已經 deprecated `priority`，`PhotoStage` 和 `GalleryImageStage` 改用 `preload` + `loading`。
+- 相簿頁：`AlbumPhotoExperience` 改收 `AlbumPhoto[]`（精簡、只有前 6 張帶 blur）。沒有分批：幻燈片需要整本清單，所有照片連結也都留在 HTML 給 SEO。
+- `eslint.config.mjs` 加了 `.next-wt-*/**` 的 ignore。之前 worktree 的 dev 輸出資料夾會讓 lint 報 6000 多個問題。
+
+**量測**（`data/photos.json` 暫時換成 1000 筆假資料，指向同一批圖；其中 200 張在同一本相簿，有 20 組同時間的照片。測完已用 `git checkout` 還原。dev server port 3015，用 curl 量 bytes）：
+
+| 頁面 | 改動前 | 改動後 |
+|---|---|---|
+| `/` HTML（含 RSC payload） | 5,098,473 B，1005 個 img，2015 個 base64 | 116,700 B（gzip 16 KB），29 個 img，22 個 base64 |
+| `/?page=2` | — | 90,628 B，24 張 |
+| 200 張相簿 | 857,717 B，400 個 base64，200 份 exifData | 503,517 B，12 個 base64，0 份 exifData |
+| `/api/photos` 一批 24 張 | — | 約 5 KB |
+
+**驗證**：
+- `.session/verify.ps1 -Feature "P2-LAZYLOAD"` → ALL CHECKS PASSED（build 只剩 og-image 原本就有的 2 個 warning）。
+  - 注意：verify 的輸出**不要**用 `2>&1 |` 或 `*>` 導出去。在 Windows PowerShell 5.1 加上 `$ErrorActionPreference="Stop"`，build 寫到 stderr 的 `Couldn't load fs`（exifr）會被當成例外，結果顯示「Build check error」。直接跑就會通過。
+- `node --import tsx --test` 197/197 通過，其中新增 14 個（`photo-feed.test.ts`）：
+  - 精簡 payload 欄位白名單（就算傳入原始 record 也不會帶出 originalUrl 等欄位）
+  - blur 只留前 N 張
+  - 排序與同時間的處理
+  - cursor 編解碼與格式錯誤
+  - 從頭走到尾不重複、不漏
+  - 中途有新增或刪除照片（包括 cursor 那張被刪）
+  - 頁碼和 cursor 對齊
+  - page／limit 參數
+- API 走完整個 feed：42 次呼叫拿到 1000 張，不重複，順序和預期一致。首頁照片牆是前 24 張，`?page=2` 是第 25–48 張。
+- 瀏覽器（內建瀏覽器，用模擬的 viewport）：
+  - 1366 寬：首屏只抓了 5 張圖（hero＋照片牆 eager 的）。捲到底自動載入到 1000 張（41 次 API，不重複），最後顯示「You've reached the end.」。按「Load more」從 24 張變 48 張、網址不變，按鈕連結更新成 `/?page=3`。
+  - 375 寬：單欄，沒有水平捲動，自動載入正常。
+  - 防盜：後載入的卡片右鍵和 dragstart 都被 preventDefault，`draggable=false`，有 image-guard class。
+  - 相簿：`?view=gallery&photo=900150` 直接打開第 151/200 張，下一張會同步更新網址，底片條有 200 張。`?view=grid&photo=` 會捲到目標照片。照片頁的上一張、下一張、返回連結都正確。
+- 注意：內建瀏覽器的面板隱藏時不會 render frame（rAF 和 IntersectionObserver 都不會觸發），要截一張圖才會推進。這是測試環境的限制，不是程式的問題。
+
+**遺留問題**：
+- 相簿頁沒有分批。200 張大約 500 KB，主要是每張卡片的 `<img srcset>`。正式站最大的相簿約 80 張（約 200 KB）。如果之後有幾百張的相簿，可以讓 grid 先 render 前 48 張，其餘在 client 逐步顯示（資料已經在 props 裡，不用再打 API），但要處理 `?photo=` 捲動和 SEO 連結。
+- 首頁相簿列的封面輪播仍然帶 blur（有 `ALBUM_SLIDESHOW_LIMIT` 上限，不會隨照片數量變大）。
+- 量測用的是 dev server。正式站（production build、R2 絕對網址）的實際數字要合併後再量。
+- 每次請求仍然從資料庫讀全部照片再分頁（和以前一樣）。991 張沒問題；如果到上萬張，可以考慮改成在 Prisma 端用 cursor 查詢。
+
+**下一步**：
+1. PR 合併、部署後，到正式站量首頁大小（方法寫在 PR 裡）。
+2. 清掉 worktree：`git worktree remove .worktrees/lazyload`。

@@ -171,7 +171,7 @@
           "id": "P2-LAZYLOAD",
           "title": "照片懶載入",
           "description": "Intersection Observer 實作、首屏只載入可見區域",
-          "status": "not_started",
+          "status": "done",
           "priority": 4,
           "dependencies": ["P1-GALLERY"],
           "acceptance_criteria": [
@@ -179,7 +179,7 @@
             "載入前顯示 placeholder",
             "不影響 SEO（SSR 照片 URL 仍在 HTML 中）"
           ],
-          "notes": "可搭配 next/image 的 loading='lazy' 實作"
+          "notes": "Session #019：首頁只 SSR 前 24 張，其餘由 /api/photos（keyset cursor）在捲到底時用 IntersectionObserver 分批載入，「Load more」是 /?page=N 真連結（無 JS／爬蟲可走，canonical 指向自己）；next/image 原生 lazy，照片牆前 3 張 eager＋低優先度；blur 只留每頁前 6 張，其他用 bg-stone-200 placeholder；payload 精簡為 GridPhoto/AlbumPhoto/HeroPhoto 白名單。1000 張假資料：首頁 HTML 5.10 MB → 117 KB，200 張相簿 858 KB → 504 KB（相簿頁未分批）。"
         }
       ]
     },
