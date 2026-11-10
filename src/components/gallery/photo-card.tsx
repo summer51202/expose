@@ -2,13 +2,15 @@ import Link from "next/link";
 
 import { PhotoStage } from "@/components/gallery/photo-stage";
 import { buildPhotoDetailHref } from "@/lib/gallery/album-gallery-url";
-import type { PublicPhoto } from "@/types/photo";
+import type { GridPhoto } from "@/lib/photos/photo-feed";
 
 type PhotoCardProps = {
-  photo: PublicPhoto;
+  photo: GridPhoto;
+  /** Load the image right away instead of when it nears the viewport. */
+  eager?: boolean;
 };
 
-export function PhotoCard({ photo }: PhotoCardProps) {
+export function PhotoCard({ photo, eager = false }: PhotoCardProps) {
   const detailHref = buildPhotoDetailHref(
     photo,
     photo.albumSlug ? { album: photo.albumSlug, view: "grid" } : null,
@@ -18,7 +20,7 @@ export function PhotoCard({ photo }: PhotoCardProps) {
     <article id={`photo-${photo.id}`} className="mb-4 break-inside-avoid scroll-mt-24">
       <Link href={detailHref} className="group block">
         <div className="relative overflow-hidden rounded-[1.25rem]">
-          <PhotoStage photo={photo} />
+          <PhotoStage photo={photo} eager={eager} />
 
           {photo.location ? (
             <div className="absolute right-3 top-3 rounded-full bg-black/30 px-3 py-1 text-xs text-white backdrop-blur-sm">

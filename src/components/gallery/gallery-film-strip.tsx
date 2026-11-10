@@ -5,10 +5,10 @@ import { useEffect, useRef, useState } from "react";
 
 import { ImageGuard } from "@/components/gallery/image-guard";
 import { cn } from "@/lib/utils";
-import type { PublicPhoto } from "@/types/photo";
+import type { AlbumPhoto } from "@/lib/photos/photo-feed";
 
 type GalleryFilmStripProps = {
-  photos: PublicPhoto[];
+  photos: AlbumPhoto[];
   currentIndex: number;
   onSelect: (index: number) => void;
 };

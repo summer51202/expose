@@ -11,11 +11,11 @@ import { buildPhotoDetailHref } from "@/lib/gallery/album-gallery-url";
 import { getDisplayImageUrl } from "@/lib/photos/display-image";
 import { nextHeroIndex } from "@/lib/photos/hero-photos";
 import { cn } from "@/lib/utils";
-import type { PublicPhoto } from "@/types/photo";
+import type { HeroPhoto } from "@/lib/photos/photo-feed";
 
 type HeroSectionProps = {
   /** Already picked on the server (see `selectHeroPhotos`). */
-  photos: PublicPhoto[];
+  photos: HeroPhoto[];
 };
 
 /** How long a photo stays fully visible before the next one fades in. */
@@ -35,7 +35,7 @@ const sampleGradients = [
   "from-indigo-950 via-blue-700 to-sky-300",
 ];
 
-function photoKey(photo: PublicPhoto) {
+function photoKey(photo: HeroPhoto) {
   return `${photo.source}-${photo.id}`;
 }
 
@@ -71,7 +71,7 @@ function usePageVisible() {
 }
 
 type PhotoLayerProps = {
-  photo: PublicPhoto;
+  photo: HeroPhoto;
   /** First photo of the page: the LCP element. */
   isInitial: boolean;
   /** Mounted ahead of time, invisible until it has loaded and the fade starts. */

@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     ".next-verify-build/**",
     ".next-init-build/**",
     ".next-claude-dev/**",
+    // Per-worktree dev servers (NEXT_DIST_DIR=.next-wt-<name>).
+    ".next-wt-*/**",
     ".worktrees/**",
     ".claude/worktrees/**",
     "out/**",
